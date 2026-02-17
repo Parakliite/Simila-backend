@@ -11,28 +11,27 @@ import (
 )
 
 type Genre struct {
-	ID        uuid.UUID
-	CreatedAt time.Time
-	UpdatedAt time.Time
-	Name      string
+	ID   uuid.UUID
+	Name string
 }
 
-type Movie struct {
-	ID          uuid.UUID
-	CreatedAt   time.Time
-	UpdatedAt   time.Time
-	ImdbID      string
-	Title       string
-	PosterPath  string
-	YoutubeID   string
-	AdminReview string
-	RatingValue int16
-	RatingName  string
-}
-
-type MovieGenre struct {
+type MediaGenre struct {
 	CreatedAt time.Time
-	UpdatedAt time.Time
 	GenreID   uuid.UUID
-	MovieID   uuid.UUID
+	MediaID   uuid.UUID
+}
+
+type Medium struct {
+	ID            uuid.UUID
+	CreatedAt     time.Time
+	UpdatedAt     time.Time
+	TmdbID        int32
+	Title         string
+	OriginalTitle string
+	PosterPath    string
+	BackdropPath  string
+	Overview      string
+	ReleaseDate   time.Time
+	Runtime       int32
+	MediaType     string
 }

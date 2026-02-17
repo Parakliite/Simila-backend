@@ -15,19 +15,21 @@ import (
 )
 
 var version = "1.0.0"
+
 const port = 8080
 
 type dbInfo struct {
-	dsn string
+	dsn          string
 	maxOpenConns int
 	maxIdleConns int
-	maxIdleTime string
+	maxIdleTime  string
 }
 
 type apiConfig struct {
-	port int
-	db dbInfo
+	port        int
+	db          dbInfo
 	environment string
+	tmdbToken   string
 }
 
 type application struct {
@@ -39,14 +41,15 @@ type application struct {
 func main() {
 	godotenv.Load()
 
-	logger := log.New(os.Stdout, "", log.Ldate | log.Ltime)
+	logger := log.New(os.Stdout, "", log.Ldate|log.Ltime)
 
 	var cfg apiConfig
 	cfg.port = port
+	cfg.environment = "development"
 	cfg.db.dsn = os.Getenv("DB_URL")
 	cfg.db.maxOpenConns = 25
-    cfg.db.maxIdleConns = 10
-    cfg.db.maxIdleTime = "15m"
+	cfg.db.maxIdleConns = 10
+	cfg.db.maxIdleTime = "15m"
 
 	db, err := openDB(cfg)
 	if err != nil {
@@ -63,14 +66,14 @@ func main() {
 
 	mux := app.routes()
 	server := &http.Server{
-		Addr:    fmt.Sprintf(":%d", port),
-		Handler: mux,
-		IdleTimeout: time.Minute,
-		ReadTimeout: 10 * time.Second,
+		Addr:         fmt.Sprintf(":%d", port),
+		Handler:      mux,
+		IdleTimeout:  time.Minute,
+		ReadTimeout:  10 * time.Second,
 		WriteTimeout: 30 * time.Second,
 	}
 
-	log.Printf("Serving on port %s\n", port)
+	log.Printf("Serving on port %d\n", port)
 	log.Fatal(server.ListenAndServe())
 }
 

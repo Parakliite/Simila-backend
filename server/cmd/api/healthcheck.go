@@ -4,12 +4,11 @@ import (
 	"net/http"
 )
 
-
 func (app *application) healthCheckHandler(w http.ResponseWriter, r *http.Request) {
 	data := map[string]string{
-		"status": "available",
+		"status":      "available",
 		"environment": app.config.environment,
-		"version": version,
+		"version":     version,
 	}
 
 	err := app.writeJSON(w, http.StatusOK, data, nil)

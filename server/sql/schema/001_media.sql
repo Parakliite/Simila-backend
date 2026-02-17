@@ -4,7 +4,7 @@ CREATE TABLE media (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     created_at TIMESTAMP WITH TIME ZONE NOT NULL,
     updated_at TIMESTAMP WITH TIME ZONE NOT NULL,
-    tmdb_id TEXT NOT NULL UNIQUE,
+    tmdb_id INTEGER NOT NULL,
     title TEXT NOT NULL CONSTRAINT min_no_characters_title 
         CHECK (LENGTH(title) BETWEEN 2 AND 500),
     original_title TEXT NOT NULL CONSTRAINT min_no_characters_original_title 
@@ -14,7 +14,8 @@ CREATE TABLE media (
     overview TEXT NOT NULL,
     release_date DATE NOT NULL,
     runtime INTEGER NOT NULL CHECK (runtime > 0),
-    media_type TEXT NOT NULL CHECK (media_type IN ('movie', 'tv'))
+    media_type TEXT NOT NULL CHECK (media_type IN ('movie', 'tv')),
+    UNIQUE (tmdb_id, media_type)
 );
 
 CREATE TABLE genres (

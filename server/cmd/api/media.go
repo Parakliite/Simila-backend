@@ -1,0 +1,171 @@
+package main
+
+import (
+	"database/sql"
+	"encoding/json"
+	"errors"
+	"fmt"
+	"net/http"
+	"net/url"
+	"time"
+
+	"github.com/deltron-fr/filmbox/server/internal/data"
+)
+
+type UnifiedTMDBResponse struct {
+	ID int32 `json:"id"`
+	// Movie fields
+	Title         string `json:"title"`
+	OriginalTitle string `json:"original_title"`
+	ReleaseDate   string `json:"release_date"`
+	Runtime       int32  `json:"runtime"`
+	// TV fields
+	Name         string  `json:"name"`
+	OriginalName string  `json:"original_name"`
+	FirstAirDate string  `json:"first_air_date"`
+	EpisodeRun   []int32 `json:"episode_run_time"`
+	// Shared fields
+	Overview     string `json:"overview"`
+	PosterPath   string `json:"poster_path"`
+	BackdropPath string `json:"backdrop_path"`
+	Genres       []struct {
+		Name string `json:"name"`
+	} `json:"genres"`
+}
+
+func (app *application) getMediaHandler(w http.ResponseWriter, r *http.Request) {
+	id, err := app.readIDParam(r)
+	if err != nil {
+		app.notFoundResponse(w, r)
+		return
+	}
+
+	mediaType := r.URL.Query().Get("type")
+	if mediaType != "movie" && mediaType != "tv" {
+		app.badRequestResponse(w, r, errors.New("type parameter must be 'movie' or 'tv'"))
+		return
+	}
+
+	media, err := app.models.Movies.GetMedia(id, mediaType)
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			media, err = app.fetchAndSaveMedia(id, mediaType)
+			if err != nil {
+				app.serverErrorResponse(w, r, err)
+				return
+			}
+		} else {
+			app.serverErrorResponse(w, r, err)
+			return
+		}
+	}
+
+	app.writeJSON(w, http.StatusOK, media, nil)
+}
+
+func (app *application) getMediaSearchHandler(w http.ResponseWriter, r *http.Request) {
+	query := r.URL.Query().Get("query")
+	if query == "" {
+		app.badRequestResponse(w, r, errors.New("query parameter is required"))
+		return
+	}
+
+	url := fmt.Sprintf("https://api.themoviedb.org/3/search/multi?query=%s", url.QueryEscape(query))
+	req, _ := http.NewRequest("GET", url, nil)
+	req.Header.Set("Authorization", "Bearer "+app.config.tmdbToken)
+
+	client := &http.Client{Timeout: 5 * time.Second}
+	resp, err := client.Do(req)
+	if err != nil || resp.StatusCode != 200 {
+		app.serverErrorResponse(w, r, errors.New("failed to search TMDB"))
+		return
+	}
+	defer resp.Body.Close()
+
+	type TMDBSearchResult struct {
+		BackdropPath  string `json:"backdrop_path"`
+		ID            int    `json:"id"`
+		Title         string `json:"title,omitempty"`
+		OriginalTitle string `json:"original_title,omitempty"`
+		PosterPath    string `json:"poster_path"`
+		MediaType     string `json:"media_type"`
+		ReleaseDate   string `json:"release_date,omitempty"`
+		Name          string `json:"name,omitempty"`
+		OriginalName  string `json:"original_name,omitempty"`
+		FirstAirDate  string `json:"first_air_date,omitempty"`
+	}
+
+	var searchResults struct {
+		Results []TMDBSearchResult `json:"results"`
+	}
+	
+	if err := json.NewDecoder(resp.Body).Decode(&searchResults); err != nil {
+		app.serverErrorResponse(w, r, err)
+		return
+	}
+
+	results := make([]TMDBSearchResult, 0, 20)
+	for _, result := range searchResults.Results {
+		if result.MediaType == "movie" || result.MediaType == "tv" {
+			results = append(results, result)
+		}
+	}
+
+	err = app.writeJSON(w, http.StatusOK, results, nil)
+	if err != nil {
+		app.serverErrorResponse(w, r, err)
+		return
+	}
+
+}
+
+func (app *application) fetchAndSaveMedia(tmdbID int32, mediaType string) (*data.Media, error) {
+	url := fmt.Sprintf("https://api.themoviedb.org/3/%s/%d", mediaType, tmdbID)
+	req, _ := http.NewRequest("GET", url, nil)
+	req.Header.Set("Authorization", "Bearer "+app.config.tmdbToken)
+
+	client := &http.Client{Timeout: 5 * time.Second}
+	resp, err := client.Do(req)
+	if err != nil || resp.StatusCode != 200 {
+		return nil, errors.New("failed to fetch from TMDB")
+	}
+	defer resp.Body.Close()
+
+	var r UnifiedTMDBResponse
+	if err := json.NewDecoder(resp.Body).Decode(&r); err != nil {
+		return nil, err
+	}
+
+	newMedia := &data.Media{
+		TmdbID:       r.ID,
+		MediaType:    mediaType,
+		Overview:     r.Overview,
+		PosterPath:   r.PosterPath,
+		BackdropPath: r.BackdropPath,
+	}
+
+	if mediaType == "movie" {
+		newMedia.Title = r.Title
+		newMedia.OriginalTitle = r.OriginalTitle
+		newMedia.Runtime = data.Runtime(r.Runtime)
+		newMedia.ReleaseDate, _ = time.Parse("2006-01-02", r.ReleaseDate)
+	} else {
+		newMedia.Title = r.Name
+		newMedia.OriginalTitle = r.OriginalName
+		newMedia.ReleaseDate, _ = time.Parse("2006-01-02", r.FirstAirDate)
+		if len(r.EpisodeRun) > 0 {
+			newMedia.Runtime = data.Runtime(r.EpisodeRun[0])
+		}
+	}
+
+	for _, g := range r.Genres {
+		newMedia.Genre = append(newMedia.Genre, data.Genre{GenreName: g.Name})
+	}
+
+	_, err = app.models.Movies.InsertMedia(newMedia)
+	if err != nil {
+		return nil, err
+	}
+
+	return newMedia, nil
+}
