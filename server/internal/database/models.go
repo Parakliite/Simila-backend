@@ -5,6 +5,7 @@
 package database
 
 import (
+	"database/sql"
 	"time"
 
 	"github.com/google/uuid"
@@ -34,4 +35,24 @@ type Medium struct {
 	ReleaseDate   time.Time
 	Runtime       int32
 	MediaType     string
+}
+
+type Token struct {
+	Hash   []byte
+	UserID uuid.UUID
+	Expiry time.Time
+	Scope  string
+}
+
+type User struct {
+	ID                uuid.UUID
+	Name              string
+	CreatedAt         time.Time
+	UpdatedAt         time.Time
+	ProfilePictureUrl sql.NullString
+	About             sql.NullString
+	Email             string
+	PasswordHash      []byte
+	Activated         bool
+	Version           int32
 }

@@ -12,6 +12,7 @@ import (
 	"github.com/deltron-fr/filmbox/server/internal/data"
 )
 
+// This is the response from tmdb and not the application itself
 type UnifiedTMDBResponse struct {
 	ID int32 `json:"id"`
 	// Movie fields
@@ -33,6 +34,8 @@ type UnifiedTMDBResponse struct {
 	} `json:"genres"`
 }
 
+// TODO: change this to use an anonymous/scoped struct instead 
+// of the returned value from the db query method
 func (app *application) getMediaHandler(w http.ResponseWriter, r *http.Request) {
 	id, err := app.readIDParam(r)
 	if err != nil {
@@ -70,7 +73,7 @@ func (app *application) getMediaSearchHandler(w http.ResponseWriter, r *http.Req
 		return
 	}
 
-	url := fmt.Sprintf("https://api.themoviedb.org/3/search/multi?query=%s", url.QueryEscape(query))
+	url := fmt.Sprintf("%s/3/search/multi?query=%s", app.config.tmdbBaseURL, url.QueryEscape(query))
 	req, _ := http.NewRequest("GET", url, nil)
 	req.Header.Set("Authorization", "Bearer "+app.config.tmdbToken)
 
@@ -120,7 +123,7 @@ func (app *application) getMediaSearchHandler(w http.ResponseWriter, r *http.Req
 }
 
 func (app *application) fetchAndSaveMedia(tmdbID int32, mediaType string) (*data.Media, error) {
-	url := fmt.Sprintf("https://api.themoviedb.org/3/%s/%d", mediaType, tmdbID)
+	url := fmt.Sprintf("%s/3/%s/%d", app.config.tmdbBaseURL, mediaType, tmdbID)
 	req, _ := http.NewRequest("GET", url, nil)
 	req.Header.Set("Authorization", "Bearer "+app.config.tmdbToken)
 
