@@ -7,6 +7,7 @@ package database
 
 import (
 	"context"
+	"database/sql"
 	"encoding/json"
 	"time"
 
@@ -93,6 +94,99 @@ type CreateMediaGenreParams struct {
 func (q *Queries) CreateMediaGenre(ctx context.Context, arg CreateMediaGenreParams) error {
 	_, err := q.db.ExecContext(ctx, createMediaGenre, arg.GenreID, arg.MediaID)
 	return err
+}
+
+const getAllRatingsForSingleMedia = `-- name: GetAllRatingsForSingleMedia :many
+SELECT 
+  ur.user_id, 
+  ur.media_id, 
+  ur.rating_value, 
+  ur.watched_date, 
+  ur.created_at, 
+  ur.updated_at,
+  m.title,
+  m.overview,
+  m.poster_path,
+  m.release_date,
+  m.tmdb_id,
+  m.backdrop_path,
+  m.runtime,
+  m.media_type
+FROM media AS m
+JOIN user_ratings AS ur
+ON m.id = ur.media_id
+WHERE media_id = $1
+  AND ur.deleted_at IS NULL
+  AND (ur.created_at, ur.user_id) < ($3, $4::UUID)
+ORDER BY ur.created_at DESC, ur.user_id DESC
+LIMIT $2
+`
+
+type GetAllRatingsForSingleMediaParams struct {
+	MediaID         uuid.UUID
+	Limit           int32
+	CursorCreatedAt time.Time
+	CursorUserID    uuid.UUID
+}
+
+type GetAllRatingsForSingleMediaRow struct {
+	UserID       uuid.UUID
+	MediaID      uuid.UUID
+	RatingValue  int32
+	WatchedDate  sql.NullTime
+	CreatedAt    time.Time
+	UpdatedAt    time.Time
+	Title        string
+	Overview     string
+	PosterPath   string
+	ReleaseDate  time.Time
+	TmdbID       int32
+	BackdropPath string
+	Runtime      int32
+	MediaType    string
+}
+
+func (q *Queries) GetAllRatingsForSingleMedia(ctx context.Context, arg GetAllRatingsForSingleMediaParams) ([]GetAllRatingsForSingleMediaRow, error) {
+	rows, err := q.db.QueryContext(ctx, getAllRatingsForSingleMedia,
+		arg.MediaID,
+		arg.Limit,
+		arg.CursorCreatedAt,
+		arg.CursorUserID,
+	)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []GetAllRatingsForSingleMediaRow
+	for rows.Next() {
+		var i GetAllRatingsForSingleMediaRow
+		if err := rows.Scan(
+			&i.UserID,
+			&i.MediaID,
+			&i.RatingValue,
+			&i.WatchedDate,
+			&i.CreatedAt,
+			&i.UpdatedAt,
+			&i.Title,
+			&i.Overview,
+			&i.PosterPath,
+			&i.ReleaseDate,
+			&i.TmdbID,
+			&i.BackdropPath,
+			&i.Runtime,
+			&i.MediaType,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
 }
 
 const getGenre = `-- name: GetGenre :one

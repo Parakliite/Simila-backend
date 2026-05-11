@@ -56,3 +56,13 @@ type User struct {
 	Activated         bool
 	Version           int32
 }
+
+type UserRating struct {
+	UserID      uuid.UUID
+	MediaID     uuid.UUID
+	RatingValue int32
+	WatchedDate sql.NullTime
+	DeletedAt   sql.NullTime
+	CreatedAt   time.Time
+	UpdatedAt   time.Time
+}

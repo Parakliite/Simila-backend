@@ -12,8 +12,14 @@ func (app *application) logError(r *http.Request, err error) {
 	})
 }
 
-func (app *application) errorResponse(w http.ResponseWriter, r *http.Request, status int, message interface{}) {
-	err := app.writeJSON(w, status, message, nil)
+func (app *application) errorResponse(
+	w http.ResponseWriter,
+	r *http.Request,
+	status int,
+	message interface{},
+) {
+	// Reuse the normal JSON writer so error payloads follow the same response path.
+	err := app.writeJSON(w, status, envelope{"error": message}, nil)
 	if err != nil {
 		w.WriteHeader(500)
 	}
@@ -39,7 +45,11 @@ func (app *application) badRequestResponse(w http.ResponseWriter, r *http.Reques
 	app.errorResponse(w, r, http.StatusBadRequest, err.Error())
 }
 
-func (app *application) failedValidationResponse(w http.ResponseWriter, r *http.Request, errors map[string]string) {
+func (app *application) failedValidationResponse(
+	w http.ResponseWriter,
+	r *http.Request,
+	errors map[string]string,
+) {
 	app.errorResponse(w, r, http.StatusUnprocessableEntity, errors)
 }
 
@@ -53,7 +63,19 @@ func (app *application) invalidCredentialsResponse(w http.ResponseWriter, r *htt
 }
 
 func (app *application) invalidAuthenticationTokenResponse(w http.ResponseWriter, r *http.Request) {
-	w.Header().Set("WWW-Authenticate", "Bearer") // informs the client that we expect them to auth using a Bearer token
+	// Tell clients to authenticate with a bearer token, even when the token is
+	// missing rather than merely invalid.
+	w.Header().Set("WWW-Authenticate", "Bearer")
 	message := "invalid or missing authentication token"
 	app.errorResponse(w, r, http.StatusUnauthorized, message)
+}
+
+func (app *application) authenticationRequiredResponse(w http.ResponseWriter, r *http.Request) {
+	message := "you must be authenticated to access this resource"
+	app.errorResponse(w, r, http.StatusUnauthorized, message)
+}
+
+func (app *application) inactiveAccountResponse(w http.ResponseWriter, r *http.Request) {
+	message := "your user account must be activated to access this resource"
+	app.errorResponse(w, r, http.StatusForbidden, message)
 }

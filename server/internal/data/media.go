@@ -41,9 +41,8 @@ type MediaModel struct {
 	q  *database.Queries
 }
 
-func (m MediaModel) InsertMedia(media *Media) (database.Medium, error) {
-	ctx := context.Background()
-	medium, err := m.q.CreateMedia(ctx,
+func (m MediaModel) InsertMedia(ctx context.Context, media *Media) error {
+	row, err := m.q.CreateMedia(ctx,
 		database.CreateMediaParams{
 			TmdbID:        media.TmdbID,
 			Title:         media.Title,
@@ -57,8 +56,12 @@ func (m MediaModel) InsertMedia(media *Media) (database.Medium, error) {
 		},
 	)
 	if err != nil {
-		return database.Medium{}, err
+		return err
 	}
+
+	media.ID = row.ID
+	media.CreatedAt = row.CreatedAt
+	media.UpdatedAt = row.UpdatedAt
 
 	for _, g := range media.Genre {
 		id, err := m.q.GetGenre(ctx, g.GenreName)
@@ -66,28 +69,33 @@ func (m MediaModel) InsertMedia(media *Media) (database.Medium, error) {
 			if errors.Is(err, sql.ErrNoRows) {
 				continue
 			} else {
-				return database.Medium{}, err
+				return err
 			}
 		}
 		err = m.q.CreateMediaGenre(ctx, database.CreateMediaGenreParams{
 			GenreID: id,
-			MediaID: medium.ID,
+			MediaID: media.ID,
 		})
 		if err != nil {
-			return database.Medium{}, err
+			return err
 		}
 	}
 
-	return medium, nil
+	return nil
 }
 
-func (m MediaModel) GetMedia(id int32, mediaType string) (*Media, error) {
-	media, err := m.q.GetMedia(context.Background(), database.GetMediaParams{
+func (m MediaModel) GetMedia(ctx context.Context, id int32, mediaType string) (*Media, error) {
+	media, err := m.q.GetMedia(ctx, database.GetMediaParams{
 		TmdbID:    id,
 		MediaType: mediaType,
 	})
 	if err != nil {
-		return nil, err
+		switch {
+		case errors.Is(err, sql.ErrNoRows):
+			return nil, ErrRecordNotFound
+		default:
+			return nil, err
+		}
 	}
 
 	return &Media{

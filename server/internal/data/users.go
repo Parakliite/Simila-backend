@@ -16,7 +16,9 @@ import (
 
 var (
 	ErrDuplicateEmail = errors.New("duplicate email")
-	ErrEditConflict   = errors.New("unable to update the record due to an edit conflict, please try again")
+	ErrEditConflict   = errors.New(
+		"unable to update the record due to an edit conflict, please try again",
+	)
 )
 
 // UserModel is a wrapper around the db connection pool
@@ -69,16 +71,19 @@ func (p *password) Matches(plaintextPassword string) (bool, error) {
 	return true, nil
 }
 
-func (m UserModel) Insert(user *User) error {
-	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
+func (m UserModel) Insert(ctx context.Context, user *User) error {
+	ctx, cancel := context.WithTimeout(ctx, 3*time.Second)
 	defer cancel()
 
 	row, err := m.q.CreateUser(ctx, database.CreateUserParams{
-		Name:              user.Name,
-		Email:             user.Email,
-		PasswordHash:      user.Password.hash,
-		About:             sql.NullString{String: user.About, Valid: user.About != ""},
-		ProfilePictureUrl: sql.NullString{String: user.ProfilePictureURL, Valid: user.ProfilePictureURL != ""},
+		Name:         user.Name,
+		Email:        user.Email,
+		PasswordHash: user.Password.hash,
+		About:        sql.NullString{String: user.About, Valid: user.About != ""},
+		ProfilePictureUrl: sql.NullString{
+			String: user.ProfilePictureURL,
+			Valid:  user.ProfilePictureURL != "",
+		},
 	})
 	if err != nil {
 		switch {
@@ -98,8 +103,8 @@ func (m UserModel) Insert(user *User) error {
 	return nil
 }
 
-func (m UserModel) GetByEmail(email string) (*User, error) {
-	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
+func (m UserModel) GetByEmail(ctx context.Context, email string) (*User, error) {
+	ctx, cancel := context.WithTimeout(ctx, 3*time.Second)
 	defer cancel()
 
 	row, err := m.q.GetUserByEmail(ctx, email)
@@ -128,8 +133,8 @@ func (m UserModel) GetByEmail(email string) (*User, error) {
 	return user, nil
 }
 
-func (m UserModel) GetByID(id uuid.UUID) (*User, error) {
-	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
+func (m UserModel) GetByID(ctx context.Context, id uuid.UUID) (*User, error) {
+	ctx, cancel := context.WithTimeout(ctx, 3*time.Second)
 	defer cancel()
 
 	row, err := m.q.GetUserByID(ctx, id)
@@ -158,8 +163,8 @@ func (m UserModel) GetByID(id uuid.UUID) (*User, error) {
 	return user, nil
 }
 
-func (m UserModel) UpdateUser(user *User) error {
-	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
+func (m UserModel) UpdateUser(ctx context.Context, user *User) error {
+	ctx, cancel := context.WithTimeout(ctx, 3*time.Second)
 	defer cancel()
 
 	version, err := m.q.UpdateUser(ctx, database.UpdateUserParams{
@@ -192,10 +197,10 @@ func (m UserModel) UpdateUser(user *User) error {
 	return nil
 }
 
-func (m UserModel) GetForToken(tokenScope, tokenPlaintext string) (*User, error) {
+func (m UserModel) GetForToken(ctx context.Context, tokenScope, tokenPlaintext string) (*User, error) {
 	tokenHash := sha256.Sum256([]byte(tokenPlaintext))
 
-	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
+	ctx, cancel := context.WithTimeout(ctx, 3*time.Second)
 	defer cancel()
 
 	row, err := m.q.GetTokenForUser(ctx, database.GetTokenForUserParams{

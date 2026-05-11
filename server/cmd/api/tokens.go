@@ -9,10 +9,9 @@ import (
 	"github.com/deltron-fr/filmbox/server/internal/validator"
 )
 
-
 func (app *application) createAuthenticationTokenHandler(w http.ResponseWriter, r *http.Request) {
 	var input struct {
-		Email string `json:"email"`
+		Email    string `json:"email"`
 		Password string `json:"password"`
 	}
 
@@ -33,8 +32,9 @@ func (app *application) createAuthenticationTokenHandler(w http.ResponseWriter, 
 	}
 
 	user, err := app.models.Users.GetByEmail(
+		r.Context(),
 		input.Email,
-		)
+	)
 	if err != nil {
 		switch {
 		case errors.Is(err, data.ErrRecordNotFound):
@@ -57,16 +57,17 @@ func (app *application) createAuthenticationTokenHandler(w http.ResponseWriter, 
 	}
 
 	token, err := app.models.Tokens.New(
+		r.Context(),
 		user.ID,
 		24*time.Hour,
 		data.ScopeAuthentication,
-		)
+	)
 	if err != nil {
 		app.serverErrorResponse(w, r, err)
 		return
 	}
 
-	err = app.writeJSON(w, http.StatusCreated, token, nil)
+	err = app.writeJSON(w, http.StatusCreated, envelope{"token": token}, nil)
 	if err != nil {
 		app.serverErrorResponse(w, r, err)
 	}

@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"database/sql"
 	"encoding/json"
 	"errors"
@@ -34,7 +35,7 @@ type UnifiedTMDBResponse struct {
 	} `json:"genres"`
 }
 
-// TODO: change this to use an anonymous/scoped struct instead 
+// TODO: change this to use an anonymous/scoped struct instead
 // of the returned value from the db query method
 func (app *application) getMediaHandler(w http.ResponseWriter, r *http.Request) {
 	id, err := app.readIDParam(r)
@@ -49,10 +50,10 @@ func (app *application) getMediaHandler(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 
-	media, err := app.models.Movies.GetMedia(id, mediaType)
+	media, err := app.models.Movies.GetMedia(r.Context(), id, mediaType)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
-			media, err = app.fetchAndSaveMedia(id, mediaType)
+			media, err = app.fetchAndSaveMedia(r.Context(), id, mediaType)
 			if err != nil {
 				app.serverErrorResponse(w, r, err)
 				return
@@ -63,7 +64,7 @@ func (app *application) getMediaHandler(w http.ResponseWriter, r *http.Request) 
 		}
 	}
 
-	app.writeJSON(w, http.StatusOK, media, nil)
+	app.writeJSON(w, http.StatusOK, envelope{"media": media}, nil)
 }
 
 func (app *application) getMediaSearchHandler(w http.ResponseWriter, r *http.Request) {
@@ -101,7 +102,7 @@ func (app *application) getMediaSearchHandler(w http.ResponseWriter, r *http.Req
 	var searchResults struct {
 		Results []TMDBSearchResult `json:"results"`
 	}
-	
+
 	if err := json.NewDecoder(resp.Body).Decode(&searchResults); err != nil {
 		app.serverErrorResponse(w, r, err)
 		return
@@ -114,15 +115,14 @@ func (app *application) getMediaSearchHandler(w http.ResponseWriter, r *http.Req
 		}
 	}
 
-	err = app.writeJSON(w, http.StatusOK, results, nil)
+	err = app.writeJSON(w, http.StatusOK, envelope{"media_results": results}, nil)
 	if err != nil {
 		app.serverErrorResponse(w, r, err)
 		return
 	}
-
 }
 
-func (app *application) fetchAndSaveMedia(tmdbID int32, mediaType string) (*data.Media, error) {
+func (app *application) fetchAndSaveMedia(ctx context.Context, tmdbID int32, mediaType string) (*data.Media, error) {
 	url := fmt.Sprintf("%s/3/%s/%d", app.config.tmdbBaseURL, mediaType, tmdbID)
 	req, _ := http.NewRequest("GET", url, nil)
 	req.Header.Set("Authorization", "Bearer "+app.config.tmdbToken)
@@ -165,7 +165,7 @@ func (app *application) fetchAndSaveMedia(tmdbID int32, mediaType string) (*data
 		newMedia.Genre = append(newMedia.Genre, data.Genre{GenreName: g.Name})
 	}
 
-	_, err = app.models.Movies.InsertMedia(newMedia)
+	err = app.models.Movies.InsertMedia(ctx, newMedia)
 	if err != nil {
 		return nil, err
 	}

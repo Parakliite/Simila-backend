@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"database/sql"
 	"encoding/json"
 	"fmt"
@@ -11,7 +12,6 @@ import (
 	"time"
 
 	"github.com/deltron-fr/filmbox/server/internal/data"
-	"github.com/deltron-fr/filmbox/server/internal/database"
 	"github.com/deltron-fr/filmbox/server/internal/jsonlog"
 	"github.com/google/uuid"
 )
@@ -19,14 +19,19 @@ import (
 // --- mocks ---
 
 type mockMediaModel struct {
-	media map[string]*data.Media // keyed by "tmdbID:type"
+	media   map[string]*data.Media // keyed by "tmdbID:type"
+	lastCtx context.Context
 }
 
 func newMockMediaModel() *mockMediaModel {
 	return &mockMediaModel{media: make(map[string]*data.Media)}
 }
 
-func (m *mockMediaModel) GetMedia(id int32, mediaType string) (*data.Media, error) {
+func (m *mockMediaModel) GetMedia(ctx context.Context, id int32, mediaType string) (*data.Media, error) {
+	m.lastCtx = ctx
+	if err := ctx.Err(); err != nil {
+		return nil, err
+	}
 	key := fmt.Sprintf("%d:%s", id, mediaType)
 	media, ok := m.media[key]
 	if !ok {
@@ -35,32 +40,47 @@ func (m *mockMediaModel) GetMedia(id int32, mediaType string) (*data.Media, erro
 	return media, nil
 }
 
-func (m *mockMediaModel) InsertMedia(media *data.Media) (database.Medium, error) {
+func (m *mockMediaModel) InsertMedia(ctx context.Context, media *data.Media) error {
+	m.lastCtx = ctx
+	if err := ctx.Err(); err != nil {
+		return err
+	}
 	key := fmt.Sprintf("%d:%s", media.TmdbID, media.MediaType)
 	media.ID = uuid.New()
 	media.CreatedAt = time.Now()
 	media.UpdatedAt = time.Now()
 	m.media[key] = media
-	return database.Medium{ID: media.ID}, nil
+	return nil
 }
 
 type mockUserModel struct{}
 
-func (m *mockUserModel) Insert(user *data.User) error                                  { return nil }
-func (m *mockUserModel) GetByEmail(email string) (*data.User, error)                   { return nil, nil }
-func (m *mockUserModel) GetByID(id uuid.UUID) (*data.User, error)                      { return nil, nil }
-func (m *mockUserModel) UpdateUser(user *data.User) error                              { return nil }
-func (m *mockUserModel) GetForToken(tokenScope, tokenPlaintext string) (*data.User, error) {
+func (m *mockUserModel) Insert(ctx context.Context, user *data.User) error { return nil }
+func (m *mockUserModel) GetByEmail(ctx context.Context, email string) (*data.User, error) {
+	return nil, nil
+}
+func (m *mockUserModel) GetByID(ctx context.Context, id uuid.UUID) (*data.User, error) {
+	return nil, nil
+}
+func (m *mockUserModel) UpdateUser(ctx context.Context, user *data.User) error { return nil }
+func (m *mockUserModel) GetForToken(ctx context.Context, tokenScope, tokenPlaintext string) (*data.User, error) {
 	return nil, nil
 }
 
 type mockTokenModel struct{}
 
-func (m *mockTokenModel) New(userID uuid.UUID, ttl time.Duration, scope string) (*data.Token, error) {
+func (m *mockTokenModel) New(
+	ctx context.Context,
+	userID uuid.UUID,
+	ttl time.Duration,
+	scope string,
+) (*data.Token, error) {
 	return nil, nil
 }
-func (m *mockTokenModel) Insert(token *data.Token) error                        { return nil }
-func (m *mockTokenModel) DeleteAllForUser(scope string, userID uuid.UUID) error { return nil }
+func (m *mockTokenModel) Insert(ctx context.Context, token *data.Token) error { return nil }
+func (m *mockTokenModel) DeleteAllForUser(ctx context.Context, scope string, userID uuid.UUID) error {
+	return nil
+}
 
 // --- helpers ---
 
@@ -87,12 +107,13 @@ func newTMDBServer() *httptest.Server {
 			"id":             550,
 			"title":          "Fight Club",
 			"original_title": "Fight Club",
-			"overview":       "An insomniac office worker and a devil-may-care soap maker form an underground fight club.",
-			"release_date":   "1999-10-15",
-			"runtime":        139,
-			"poster_path":    "/pB8BM7pdSp6B6Ih7QZ4DrQ3PmJK.jpg",
-			"backdrop_path":  "/hZkgoQYus5dXo3H8T7Uef6DNknx.jpg",
-			"genres":         []map[string]any{{"name": "Drama"}, {"name": "Thriller"}},
+			"overview": "An insomniac office worker and a devil-may-care soap " +
+				"maker form an underground fight club.",
+			"release_date":  "1999-10-15",
+			"runtime":       139,
+			"poster_path":   "/pB8BM7pdSp6B6Ih7QZ4DrQ3PmJK.jpg",
+			"backdrop_path": "/hZkgoQYus5dXo3H8T7Uef6DNknx.jpg",
+			"genres":        []map[string]any{{"name": "Drama"}, {"name": "Thriller"}},
 		})
 	})
 
@@ -424,5 +445,66 @@ func TestSearchMedia_ResultsContainExpectedFields(t *testing.T) {
 	tv := results[1]
 	if tv.ID != 1396 || tv.Name != "Breaking Bad" || tv.MediaType != "tv" {
 		t.Errorf("unexpected tv result: %+v", tv)
+	}
+}
+
+// --- context propagation tests ---
+
+func TestGetMedia_PassesRequestContext(t *testing.T) {
+	tmdb := newTMDBServer()
+	defer tmdb.Close()
+	app := newTestApp(tmdb.URL)
+
+	cached := &data.Media{
+		TmdbID:    550,
+		Title:     "Fight Club",
+		MediaType: "movie",
+		Runtime:   data.Runtime(139),
+	}
+	mock := app.models.Movies.(*mockMediaModel)
+	mock.media["550:movie"] = cached
+
+	type ctxKey string
+	req := httptest.NewRequest("GET", "/api/v1/media/550?type=movie", nil)
+	req.SetPathValue("id", "550")
+	req = req.WithContext(context.WithValue(req.Context(), ctxKey("test"), "marker"))
+	rr := httptest.NewRecorder()
+
+	app.getMediaHandler(rr, req)
+
+	if rr.Code != http.StatusOK {
+		t.Fatalf("expected status 200, got %d", rr.Code)
+	}
+	if mock.lastCtx == nil {
+		t.Fatal("expected context to be passed to model, got nil")
+	}
+	if mock.lastCtx.Value(ctxKey("test")) != "marker" {
+		t.Error("model did not receive the request context")
+	}
+}
+
+func TestGetMedia_CancelledContextReturns500(t *testing.T) {
+	app := newTestApp("")
+
+	cached := &data.Media{
+		TmdbID:    550,
+		Title:     "Fight Club",
+		MediaType: "movie",
+		Runtime:   data.Runtime(139),
+	}
+	app.models.Movies.(*mockMediaModel).media["550:movie"] = cached
+
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel()
+
+	req := httptest.NewRequest("GET", "/api/v1/media/550?type=movie", nil)
+	req.SetPathValue("id", "550")
+	req = req.WithContext(ctx)
+	rr := httptest.NewRecorder()
+
+	app.getMediaHandler(rr, req)
+
+	if rr.Code != http.StatusInternalServerError {
+		t.Fatalf("expected status 500 for cancelled context, got %d", rr.Code)
 	}
 }

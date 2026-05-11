@@ -60,18 +60,18 @@ type TokenModel struct {
 
 // The New() method is a shortcut which creates a new Token struct and then inserts the
 // data in the tokens table.
-func (m TokenModel) New(userID uuid.UUID, ttl time.Duration, scope string) (*Token, error) {
+func (m TokenModel) New(ctx context.Context, userID uuid.UUID, ttl time.Duration, scope string) (*Token, error) {
 	token, err := generateToken(userID, ttl, scope)
 	if err != nil {
 		return nil, err
 	}
 
-	err = m.Insert(token)
+	err = m.Insert(ctx, token)
 	return token, err
 }
 
-func (m TokenModel) Insert(token *Token) error {
-	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
+func (m TokenModel) Insert(ctx context.Context, token *Token) error {
+	ctx, cancel := context.WithTimeout(ctx, 3*time.Second)
 	defer cancel()
 
 	err := m.q.CreateToken(ctx, database.CreateTokenParams{
@@ -84,8 +84,8 @@ func (m TokenModel) Insert(token *Token) error {
 	return err
 }
 
-func (m TokenModel) DeleteAllForUser(scope string, userID uuid.UUID) error {
-	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
+func (m TokenModel) DeleteAllForUser(ctx context.Context, scope string, userID uuid.UUID) error {
+	ctx, cancel := context.WithTimeout(ctx, 3*time.Second)
 	defer cancel()
 
 	err := m.q.DeleteAllTokensAllForUser(ctx, database.DeleteAllTokensAllForUserParams{
