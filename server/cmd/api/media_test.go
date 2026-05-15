@@ -2,102 +2,13 @@ package main
 
 import (
 	"context"
-	"database/sql"
 	"encoding/json"
-	"fmt"
-	"io"
 	"net/http"
 	"net/http/httptest"
 	"testing"
-	"time"
 
 	"github.com/deltron-fr/filmbox/server/internal/data"
-	"github.com/deltron-fr/filmbox/server/internal/jsonlog"
-	"github.com/google/uuid"
 )
-
-// --- mocks ---
-
-type mockMediaModel struct {
-	media   map[string]*data.Media // keyed by "tmdbID:type"
-	lastCtx context.Context
-}
-
-func newMockMediaModel() *mockMediaModel {
-	return &mockMediaModel{media: make(map[string]*data.Media)}
-}
-
-func (m *mockMediaModel) GetMedia(ctx context.Context, id int32, mediaType string) (*data.Media, error) {
-	m.lastCtx = ctx
-	if err := ctx.Err(); err != nil {
-		return nil, err
-	}
-	key := fmt.Sprintf("%d:%s", id, mediaType)
-	media, ok := m.media[key]
-	if !ok {
-		return nil, sql.ErrNoRows
-	}
-	return media, nil
-}
-
-func (m *mockMediaModel) InsertMedia(ctx context.Context, media *data.Media) error {
-	m.lastCtx = ctx
-	if err := ctx.Err(); err != nil {
-		return err
-	}
-	key := fmt.Sprintf("%d:%s", media.TmdbID, media.MediaType)
-	media.ID = uuid.New()
-	media.CreatedAt = time.Now()
-	media.UpdatedAt = time.Now()
-	m.media[key] = media
-	return nil
-}
-
-type mockUserModel struct{}
-
-func (m *mockUserModel) Insert(ctx context.Context, user *data.User) error { return nil }
-func (m *mockUserModel) GetByEmail(ctx context.Context, email string) (*data.User, error) {
-	return nil, nil
-}
-func (m *mockUserModel) GetByID(ctx context.Context, id uuid.UUID) (*data.User, error) {
-	return nil, nil
-}
-func (m *mockUserModel) UpdateUser(ctx context.Context, user *data.User) error { return nil }
-func (m *mockUserModel) GetForToken(ctx context.Context, tokenScope, tokenPlaintext string) (*data.User, error) {
-	return nil, nil
-}
-
-type mockTokenModel struct{}
-
-func (m *mockTokenModel) New(
-	ctx context.Context,
-	userID uuid.UUID,
-	ttl time.Duration,
-	scope string,
-) (*data.Token, error) {
-	return nil, nil
-}
-func (m *mockTokenModel) Insert(ctx context.Context, token *data.Token) error { return nil }
-func (m *mockTokenModel) DeleteAllForUser(ctx context.Context, scope string, userID uuid.UUID) error {
-	return nil
-}
-
-// --- helpers ---
-
-func newTestApp(tmdbURL string) *application {
-	return &application{
-		config: &apiConfig{
-			tmdbToken:   "test-token",
-			tmdbBaseURL: tmdbURL,
-		},
-		logger: jsonlog.New(io.Discard, jsonlog.LevelOff),
-		models: data.Models{
-			Movies: newMockMediaModel(),
-			Users:  &mockUserModel{},
-			Tokens: &mockTokenModel{},
-		},
-	}
-}
 
 func newTMDBServer() *httptest.Server {
 	mux := http.NewServeMux()
@@ -179,8 +90,9 @@ func TestGetMedia_ReturnsMovie(t *testing.T) {
 		t.Fatalf("expected status 200, got %d", rr.Code)
 	}
 
-	var got map[string]any
-	json.Unmarshal(rr.Body.Bytes(), &got)
+	var resp map[string]any
+	json.Unmarshal(rr.Body.Bytes(), &resp)
+	got := resp["media"].(map[string]any)
 
 	if got["title"] != "Fight Club" {
 		t.Errorf("expected title %q, got %q", "Fight Club", got["title"])
@@ -211,8 +123,9 @@ func TestGetMedia_ReturnsTVShow(t *testing.T) {
 		t.Fatalf("expected status 200, got %d", rr.Code)
 	}
 
-	var got map[string]any
-	json.Unmarshal(rr.Body.Bytes(), &got)
+	var resp map[string]any
+	json.Unmarshal(rr.Body.Bytes(), &resp)
+	got := resp["media"].(map[string]any)
 
 	if got["title"] != "Breaking Bad" {
 		t.Errorf("expected title %q, got %q", "Breaking Bad", got["title"])
@@ -248,8 +161,9 @@ func TestGetMedia_ReturnsCachedMedia(t *testing.T) {
 		t.Fatalf("expected status 200, got %d", rr.Code)
 	}
 
-	var got data.Media
-	json.Unmarshal(rr.Body.Bytes(), &got)
+	var resp map[string]data.Media
+	json.Unmarshal(rr.Body.Bytes(), &resp)
+	got := resp["media"]
 
 	if got.Title != "Fight Club" {
 		t.Errorf("expected title %q, got %q", "Fight Club", got.Title)
@@ -323,8 +237,9 @@ func TestGetMedia_FetchesMoveGenres(t *testing.T) {
 
 	app.getMediaHandler(rr, req)
 
-	var got data.Media
-	json.Unmarshal(rr.Body.Bytes(), &got)
+	var resp map[string]data.Media
+	json.Unmarshal(rr.Body.Bytes(), &resp)
+	got := resp["media"]
 
 	if len(got.Genre) != 2 {
 		t.Fatalf("expected 2 genres, got %d", len(got.Genre))
@@ -368,8 +283,9 @@ func TestSearchMedia_ReturnsFilteredResults(t *testing.T) {
 		t.Fatalf("expected status 200, got %d", rr.Code)
 	}
 
-	var results []json.RawMessage
-	json.Unmarshal(rr.Body.Bytes(), &results)
+	var resp map[string][]json.RawMessage
+	json.Unmarshal(rr.Body.Bytes(), &resp)
+	results := resp["media_results"]
 
 	if len(results) != 2 {
 		t.Fatalf("expected 2 results (person filtered out), got %d", len(results))
@@ -429,13 +345,14 @@ func TestSearchMedia_ResultsContainExpectedFields(t *testing.T) {
 
 	app.getMediaSearchHandler(rr, req)
 
-	var results []struct {
+	var resp map[string][]struct {
 		ID        int    `json:"id"`
 		Title     string `json:"title"`
 		Name      string `json:"name"`
 		MediaType string `json:"media_type"`
 	}
-	json.Unmarshal(rr.Body.Bytes(), &results)
+	json.Unmarshal(rr.Body.Bytes(), &resp)
+	results := resp["media_results"]
 
 	movie := results[0]
 	if movie.ID != 550 || movie.Title != "Fight Club" || movie.MediaType != "movie" {

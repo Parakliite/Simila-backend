@@ -20,6 +20,9 @@ SELECT id, name, email, created_at, updated_at, profile_picture_url, password_ha
 FROM users
 WHERE id = $1;
 
+-- name: GetAllUsers :many
+SELECT id FROM users;
+
 -- name: UpdateUser :one
 UPDATE users
 SET name = $1,

@@ -39,11 +39,16 @@ type RatingQuerier interface {
 	DeleteUserRating(ctx context.Context, userID, mediaID uuid.UUID) error
 }
 
+type MatchQuerier interface {
+	GetSimilarities(targetUserID uuid.UUID, ratings []Rating, indexMap map[uuid.UUID]int) (map[uuid.UUID]float64, error)
+}
+
 type Models struct {
 	Movies  MediaQuerier
 	Users   UserQuerier
 	Tokens  TokenQuerier
 	Ratings RatingQuerier
+	Matches MatchQuerier
 }
 
 func NewModels(db *sql.DB) Models {
@@ -63,6 +68,10 @@ func NewModels(db *sql.DB) Models {
 			q:  dbQueries,
 		},
 		Ratings: RatingModel{
+			DB: db,
+			q:  dbQueries,
+		},
+		Matches: MatchModel{
 			DB: db,
 			q:  dbQueries,
 		},

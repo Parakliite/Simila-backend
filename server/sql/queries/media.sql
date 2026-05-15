@@ -53,28 +53,8 @@ INSERT INTO media_genres (
     NOW(), $1, $2
 );
 
--- name: GetAllRatingsForSingleMedia :many
-SELECT 
-  ur.user_id, 
-  ur.media_id, 
-  ur.rating_value, 
-  ur.watched_date, 
-  ur.created_at, 
-  ur.updated_at,
-  m.title,
-  m.overview,
-  m.poster_path,
-  m.release_date,
-  m.tmdb_id,
-  m.backdrop_path,
-  m.runtime,
-  m.media_type
-FROM media AS m
-JOIN user_ratings AS ur
-ON m.id = ur.media_id
-WHERE media_id = $1
-  AND ur.deleted_at IS NULL
-  AND (ur.created_at, ur.user_id) < (sqlc.arg('cursor_created_at'), sqlc.arg('cursor_user_id')::UUID)
-ORDER BY ur.created_at DESC, ur.user_id DESC
-LIMIT $2;
+-- name: GetAllMedia :many
+SELECT id
+FROM media;
+
 

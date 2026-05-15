@@ -205,6 +205,6 @@ func toUserRatingForMedia(row database.GetAllRatingsForSingleMediaRow) UserRatin
 }
 
 func ValidateRatingValue(v *validator.Validator, rValue int32) {
-	v.Check(rValue > 10, "rating_value", "rating value must be between 1 to 10")
-	v.Check(rValue < 1, "rating_value", "rating value must be between 1 to 10")
+	v.Check(rValue <= 10, "rating_value", "rating value must be between 1 to 10")
+	v.Check(rValue >= 1, "rating_value", "rating value must be between 1 to 10")
 }

@@ -57,6 +57,14 @@ type User struct {
 	Version           int32
 }
 
+type UserMatch struct {
+	TargetUserID       uuid.UUID
+	OtherUserID        uuid.UUID
+	Score              float64
+	SharedMediaCount   int32
+	LastRecalculatedAt time.Time
+}
+
 type UserRating struct {
 	UserID      uuid.UUID
 	MediaID     uuid.UUID

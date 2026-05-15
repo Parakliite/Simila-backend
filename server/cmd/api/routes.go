@@ -22,6 +22,17 @@ func (app *application) routes() http.Handler {
 	mux.Handle("GET /api/v1/media/search",
 		app.authenticate(http.HandlerFunc(app.requireActivatedUser(app.getMediaSearchHandler))))
 
+	mux.Handle("PUT /api/v1/ratings",
+		app.authenticate(http.HandlerFunc(app.requireActivatedUser(app.upsertRatingHandler))))
+	mux.Handle("GET /api/v1/ratings",
+		app.authenticate(http.HandlerFunc(app.requireActivatedUser(app.listRatingsHandler))))
+	mux.Handle("GET /api/v1/ratings/{media_id}",
+		app.authenticate(http.HandlerFunc(app.requireActivatedUser(app.getRatingHandler))))
+	mux.Handle("DELETE /api/v1/ratings/{media_id}",
+		app.authenticate(http.HandlerFunc(app.requireActivatedUser(app.deleteRatingHandler))))
+	mux.Handle("GET /api/v1/media/{media_id}/ratings",
+		app.authenticate(http.HandlerFunc(app.requireActivatedUser(app.listRatingsForMedia))))
+
 	mux.HandleFunc("/", app.notFoundResponse)
 
 	return app.metrics(app.recoverPanic(app.enableCORS(mux)))
