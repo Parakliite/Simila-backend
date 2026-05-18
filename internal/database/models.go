@@ -6,10 +6,56 @@ package database
 
 import (
 	"database/sql"
+	"database/sql/driver"
+	"fmt"
 	"time"
 
 	"github.com/google/uuid"
 )
+
+type ReactionType string
+
+const (
+	ReactionTypeWatchedBecauseOfYou ReactionType = "watched_because_of_you"
+	ReactionTypeGreatPick           ReactionType = "great_pick"
+	ReactionTypeCurious             ReactionType = "curious"
+	ReactionTypeHotTake             ReactionType = "hot_take"
+)
+
+func (e *ReactionType) Scan(src interface{}) error {
+	switch s := src.(type) {
+	case []byte:
+		*e = ReactionType(s)
+	case string:
+		*e = ReactionType(s)
+	default:
+		return fmt.Errorf("unsupported scan type for ReactionType: %T", src)
+	}
+	return nil
+}
+
+type NullReactionType struct {
+	ReactionType ReactionType
+	Valid        bool // Valid is true if ReactionType is not NULL
+}
+
+// Scan implements the Scanner interface.
+func (ns *NullReactionType) Scan(value interface{}) error {
+	if value == nil {
+		ns.ReactionType, ns.Valid = "", false
+		return nil
+	}
+	ns.Valid = true
+	return ns.ReactionType.Scan(value)
+}
+
+// Value implements the driver Valuer interface.
+func (ns NullReactionType) Value() (driver.Value, error) {
+	if !ns.Valid {
+		return nil, nil
+	}
+	return string(ns.ReactionType), nil
+}
 
 type Genre struct {
 	ID   uuid.UUID
@@ -73,4 +119,13 @@ type UserRating struct {
 	DeletedAt   sql.NullTime
 	CreatedAt   time.Time
 	UpdatedAt   time.Time
+}
+
+type UserReaction struct {
+	ReactorUserID uuid.UUID
+	RatingUserID  uuid.UUID
+	MediaID       uuid.UUID
+	Reaction      ReactionType
+	CreatedAt     time.Time
+	UpdatedAt     time.Time
 }
