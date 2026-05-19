@@ -43,12 +43,43 @@ type MatchQuerier interface {
 	GetSimilarities(targetUserID uuid.UUID, ratings []Rating, indexMap map[uuid.UUID]int) (map[uuid.UUID]float64, error)
 }
 
+type ReactionQuerier interface {
+	UpsertReaction(ctx context.Context, reaction Reaction) (Reaction, error)
+	DeleteReaction(ctx context.Context, reactorUserID, ratingUserID, mediaID uuid.UUID) error
+	GetReactionCountForRating(ctx context.Context, ratingUserID, mediaID uuid.UUID) (int64, error)
+	GetUserReactionsForTargetUser(
+		ctx context.Context,
+		ratingUserID uuid.UUID,
+		cursorCreatedAt time.Time,
+		cursorReactorUserID uuid.UUID,
+		limit int32,
+	) ([]Reaction, error)
+}
+
+type WatchlistQuerier interface {
+	InsertMediaToWatchlist(ctx context.Context, watchlist Watchlist) (Watchlist, error)
+	UpdateWatchlistItemStatus(
+		ctx context.Context,
+		userID, mediaID uuid.UUID,
+		status string,
+	) (Watchlist, error)
+	DeleteMediaFromWatchlist(ctx context.Context, userID, mediaID uuid.UUID) error
+	GetAllItemsInWatchlist(
+		ctx context.Context,
+		createdAt time.Time,
+		limit int32,
+		userID, mediaID uuid.UUID,
+	) ([]UserWatchlistItem, error)
+}
+
 type Models struct {
-	Movies  MediaQuerier
-	Users   UserQuerier
-	Tokens  TokenQuerier
-	Ratings RatingQuerier
-	Matches MatchQuerier
+	Movies    MediaQuerier
+	Users     UserQuerier
+	Tokens    TokenQuerier
+	Ratings   RatingQuerier
+	Matches   MatchQuerier
+	Reactions ReactionQuerier
+	Watchlist WatchlistQuerier
 }
 
 func NewModels(db *sql.DB) Models {
@@ -72,6 +103,14 @@ func NewModels(db *sql.DB) Models {
 			q:  dbQueries,
 		},
 		Matches: MatchModel{
+			DB: db,
+			q:  dbQueries,
+		},
+		Reactions: ReactionModel{
+			DB: db,
+			q:  dbQueries,
+		},
+		Watchlist: WatchlistModel{
 			DB: db,
 			q:  dbQueries,
 		},

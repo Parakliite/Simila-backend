@@ -33,6 +33,15 @@ func (app *application) routes() http.Handler {
 	mux.Handle("GET /api/v1/media/{media_id}/ratings",
 		app.authenticate(http.HandlerFunc(app.requireActivatedUser(app.listRatingsForMedia))))
 
+	mux.Handle("PUT /api/v1/reactions",
+		app.authenticate(http.HandlerFunc(app.requireActivatedUser(app.upsertReactionHandler))))
+	mux.Handle("DELETE /api/v1/reactions/{rating_user_id}/{media_id}",
+		app.authenticate(http.HandlerFunc(app.requireActivatedUser(app.deleteReactionHandler))))
+	mux.Handle("GET /api/v1/users/{user_id}/reactions",
+		app.authenticate(http.HandlerFunc(app.requireActivatedUser(app.listUserReactionsHandler))))
+	mux.Handle("GET /api/v1/ratings/{rating_user_id}/{media_id}/reactions/count",
+		app.authenticate(http.HandlerFunc(app.requireActivatedUser(app.getReactionCountForRatingHandler))))
+
 	mux.HandleFunc("/", app.notFoundResponse)
 
 	return app.metrics(app.recoverPanic(app.enableCORS(mux)))

@@ -57,6 +57,90 @@ func (ns NullReactionType) Value() (driver.Value, error) {
 	return string(ns.ReactionType), nil
 }
 
+type SourceType string
+
+const (
+	SourceTypeSelf      SourceType = "self"
+	SourceTypeFromMatch SourceType = "from_match"
+)
+
+func (e *SourceType) Scan(src interface{}) error {
+	switch s := src.(type) {
+	case []byte:
+		*e = SourceType(s)
+	case string:
+		*e = SourceType(s)
+	default:
+		return fmt.Errorf("unsupported scan type for SourceType: %T", src)
+	}
+	return nil
+}
+
+type NullSourceType struct {
+	SourceType SourceType
+	Valid      bool // Valid is true if SourceType is not NULL
+}
+
+// Scan implements the Scanner interface.
+func (ns *NullSourceType) Scan(value interface{}) error {
+	if value == nil {
+		ns.SourceType, ns.Valid = "", false
+		return nil
+	}
+	ns.Valid = true
+	return ns.SourceType.Scan(value)
+}
+
+// Value implements the driver Valuer interface.
+func (ns NullSourceType) Value() (driver.Value, error) {
+	if !ns.Valid {
+		return nil, nil
+	}
+	return string(ns.SourceType), nil
+}
+
+type StatusType string
+
+const (
+	StatusTypeWatched    StatusType = "watched"
+	StatusTypeNotWatched StatusType = "not_watched"
+)
+
+func (e *StatusType) Scan(src interface{}) error {
+	switch s := src.(type) {
+	case []byte:
+		*e = StatusType(s)
+	case string:
+		*e = StatusType(s)
+	default:
+		return fmt.Errorf("unsupported scan type for StatusType: %T", src)
+	}
+	return nil
+}
+
+type NullStatusType struct {
+	StatusType StatusType
+	Valid      bool // Valid is true if StatusType is not NULL
+}
+
+// Scan implements the Scanner interface.
+func (ns *NullStatusType) Scan(value interface{}) error {
+	if value == nil {
+		ns.StatusType, ns.Valid = "", false
+		return nil
+	}
+	ns.Valid = true
+	return ns.StatusType.Scan(value)
+}
+
+// Value implements the driver Valuer interface.
+func (ns NullStatusType) Value() (driver.Value, error) {
+	if !ns.Valid {
+		return nil, nil
+	}
+	return string(ns.StatusType), nil
+}
+
 type Genre struct {
 	ID   uuid.UUID
 	Name string
@@ -81,6 +165,15 @@ type Medium struct {
 	ReleaseDate   time.Time
 	Runtime       int32
 	MediaType     string
+}
+
+type ReactionComment struct {
+	ID         uuid.UUID
+	ReactionID uuid.UUID
+	UserID     uuid.UUID
+	Body       string
+	CreatedAt  time.Time
+	UpdatedAt  time.Time
 }
 
 type Token struct {
@@ -128,4 +221,14 @@ type UserReaction struct {
 	Reaction      ReactionType
 	CreatedAt     time.Time
 	UpdatedAt     time.Time
+	ID            uuid.UUID
+}
+
+type UserWatchlist struct {
+	UserID        uuid.UUID
+	MediaID       uuid.UUID
+	CreatedAt     time.Time
+	Status        NullStatusType
+	Source        SourceType
+	SourceMatchID uuid.NullUUID
 }

@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"sort"
 	"time"
 
 	"github.com/deltron-fr/filmbox/server/internal/data"
@@ -225,6 +226,91 @@ func (m *mockMatchModel) GetSimilarities(targetUserID uuid.UUID, ratings []data.
 	return make(map[uuid.UUID]float64), nil
 }
 
+// --- mock reaction model ---
+
+type mockReactionModel struct {
+	reactions map[string]data.Reaction
+}
+
+func newMockReactionModel() *mockReactionModel {
+	return &mockReactionModel{
+		reactions: make(map[string]data.Reaction),
+	}
+}
+
+func reactionKey(reactorUserID, ratingUserID, mediaID uuid.UUID) string {
+	return reactorUserID.String() + ":" + ratingUserID.String() + ":" + mediaID.String()
+}
+
+func (m *mockReactionModel) UpsertReaction(ctx context.Context, reaction data.Reaction) (data.Reaction, error) {
+	now := time.Now()
+	key := reactionKey(reaction.ReactorUserID, reaction.RatingUserID, reaction.MediaID)
+	if existing, ok := m.reactions[key]; ok {
+		reaction.ID = existing.ID
+		reaction.CreatedAt = existing.CreatedAt
+	} else {
+		reaction.ID = uuid.New()
+		reaction.CreatedAt = now
+	}
+	reaction.UpdatedAt = now
+	m.reactions[key] = reaction
+	return reaction, nil
+}
+
+func (m *mockReactionModel) DeleteReaction(ctx context.Context, reactorUserID, ratingUserID, mediaID uuid.UUID) error {
+	key := reactionKey(reactorUserID, ratingUserID, mediaID)
+	if _, ok := m.reactions[key]; !ok {
+		return data.ErrRecordNotFound
+	}
+	delete(m.reactions, key)
+	return nil
+}
+
+func (m *mockReactionModel) GetReactionCountForRating(ctx context.Context, ratingUserID, mediaID uuid.UUID) (int64, error) {
+	var count int64
+	for _, reaction := range m.reactions {
+		if reaction.RatingUserID == ratingUserID && reaction.MediaID == mediaID {
+			count++
+		}
+	}
+	return count, nil
+}
+
+func (m *mockReactionModel) GetUserReactionsForTargetUser(
+	ctx context.Context,
+	ratingUserID uuid.UUID,
+	cursorCreatedAt time.Time,
+	cursorReactorUserID uuid.UUID,
+	limit int32,
+) ([]data.Reaction, error) {
+	var reactions []data.Reaction
+	for _, reaction := range m.reactions {
+		if reaction.RatingUserID != ratingUserID {
+			continue
+		}
+		if reaction.CreatedAt.After(cursorCreatedAt) {
+			continue
+		}
+		if reaction.CreatedAt.Equal(cursorCreatedAt) && reaction.ReactorUserID.String() >= cursorReactorUserID.String() {
+			continue
+		}
+		reactions = append(reactions, reaction)
+	}
+
+	sort.Slice(reactions, func(i, j int) bool {
+		if reactions[i].CreatedAt.Equal(reactions[j].CreatedAt) {
+			return reactions[i].ReactorUserID.String() > reactions[j].ReactorUserID.String()
+		}
+		return reactions[i].CreatedAt.After(reactions[j].CreatedAt)
+	})
+
+	if len(reactions) > int(limit) {
+		reactions = reactions[:limit]
+	}
+
+	return reactions, nil
+}
+
 // --- helpers ---
 
 func newTestApp(tmdbURL string) *application {
@@ -235,11 +321,12 @@ func newTestApp(tmdbURL string) *application {
 		},
 		logger: jsonlog.New(io.Discard, jsonlog.LevelOff),
 		models: data.Models{
-			Movies:  newMockMediaModel(),
-			Users:   newMockUserModel(),
-			Tokens:  newMockTokenModel(),
-			Ratings: newMockRatingModel(),
-			Matches: &mockMatchModel{},
+			Movies:    newMockMediaModel(),
+			Users:     newMockUserModel(),
+			Tokens:    newMockTokenModel(),
+			Ratings:   newMockRatingModel(),
+			Matches:   &mockMatchModel{},
+			Reactions: newMockReactionModel(),
 		},
 	}
 }

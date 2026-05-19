@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/deltron-fr/filmbox/server/internal/database"
+	"github.com/deltron-fr/filmbox/server/internal/validator"
 	"github.com/google/uuid"
 )
 
@@ -16,6 +17,7 @@ type ReactionModel struct {
 }
 
 type Reaction struct {
+	ID            uuid.UUID             `json:"id"`
 	ReactorUserID uuid.UUID             `json:"reactor_user_id"`
 	RatingUserID  uuid.UUID             `json:"rating_user_id"`
 	MediaID       uuid.UUID             `json:"media_id"`
@@ -25,6 +27,9 @@ type Reaction struct {
 }
 
 func (r ReactionModel) UpsertReaction(ctx context.Context, reaction Reaction) (Reaction, error) {
+	ctx, cancel := context.WithTimeout(ctx, 3*time.Second)
+	defer cancel()
+
 	row, err := r.q.UpsertUserReaction(ctx, database.UpsertUserReactionParams{
 		ReactorUserID: reaction.ReactorUserID,
 		RatingUserID:  reaction.RatingUserID,
@@ -36,6 +41,7 @@ func (r ReactionModel) UpsertReaction(ctx context.Context, reaction Reaction) (R
 	}
 
 	return Reaction{
+		ID:            row.ID,
 		ReactorUserID: row.ReactorUserID,
 		RatingUserID:  row.RatingUserID,
 		MediaID:       row.MediaID,
@@ -46,6 +52,9 @@ func (r ReactionModel) UpsertReaction(ctx context.Context, reaction Reaction) (R
 }
 
 func (r ReactionModel) DeleteReaction(ctx context.Context, reactorUserID, ratingUserID, mediaID uuid.UUID) error {
+	ctx, cancel := context.WithTimeout(ctx, 3*time.Second)
+	defer cancel()
+
 	row, err := r.q.DeleteUserReaction(ctx, database.DeleteUserReactionParams{
 		ReactorUserID: reactorUserID,
 		RatingUserID:  ratingUserID,
@@ -63,6 +72,9 @@ func (r ReactionModel) DeleteReaction(ctx context.Context, reactorUserID, rating
 }
 
 func (r ReactionModel) GetReactionCountForRating(ctx context.Context, ratingUserID, mediaID uuid.UUID) (int64, error) {
+	ctx, cancel := context.WithTimeout(ctx, 3*time.Second)
+	defer cancel()
+
 	row, err := r.q.GetReactionCountForRating(ctx, database.GetReactionCountForRatingParams{
 		RatingUserID: ratingUserID,
 		MediaID:      mediaID,
@@ -81,6 +93,9 @@ func (r ReactionModel) GetUserReactionsForTargetUser(
 	cursorReactorUserID uuid.UUID,
 	limit int32,
 ) ([]Reaction, error) {
+	ctx, cancel := context.WithTimeout(ctx, 3*time.Second)
+	defer cancel()
+
 	rows, err := r.q.GetUserReactionsForTargetUser(ctx, database.GetUserReactionsForTargetUserParams{
 		RatingUserID:        ratingUserID,
 		CursorCreatedAt:     cursorCreatedAt,
@@ -95,6 +110,7 @@ func (r ReactionModel) GetUserReactionsForTargetUser(
 
 	for _, row := range rows {
 		reactions = append(reactions, Reaction{
+			ID:            row.ID,
 			ReactorUserID: row.ReactorUserID,
 			RatingUserID:  row.RatingUserID,
 			MediaID:       row.MediaID,
@@ -105,4 +121,19 @@ func (r ReactionModel) GetUserReactionsForTargetUser(
 	}
 
 	return reactions, nil
+}
+
+func ValidateReactionType(v *validator.Validator, reaction string) {
+	v.Check(reaction != "", "reaction", "must be provided")
+	v.Check(
+		validator.In(
+			reaction,
+			string(database.ReactionTypeWatchedBecauseOfYou),
+			string(database.ReactionTypeGreatPick),
+			string(database.ReactionTypeCurious),
+			string(database.ReactionTypeHotTake),
+		),
+		"reaction",
+		"must be a valid reaction type",
+	)
 }

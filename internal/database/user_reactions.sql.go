@@ -51,6 +51,7 @@ func (q *Queries) GetReactionCountForRating(ctx context.Context, arg GetReaction
 
 const getUserReactionsForTargetUser = `-- name: GetUserReactionsForTargetUser :many
 SELECT 
+  id,
   reactor_user_id,
   rating_user_id,
   media_id,
@@ -71,7 +72,17 @@ type GetUserReactionsForTargetUserParams struct {
 	CursorReactorUserID uuid.UUID
 }
 
-func (q *Queries) GetUserReactionsForTargetUser(ctx context.Context, arg GetUserReactionsForTargetUserParams) ([]UserReaction, error) {
+type GetUserReactionsForTargetUserRow struct {
+	ID            uuid.UUID
+	ReactorUserID uuid.UUID
+	RatingUserID  uuid.UUID
+	MediaID       uuid.UUID
+	Reaction      ReactionType
+	CreatedAt     time.Time
+	UpdatedAt     time.Time
+}
+
+func (q *Queries) GetUserReactionsForTargetUser(ctx context.Context, arg GetUserReactionsForTargetUserParams) ([]GetUserReactionsForTargetUserRow, error) {
 	rows, err := q.db.QueryContext(ctx, getUserReactionsForTargetUser,
 		arg.RatingUserID,
 		arg.Limit,
@@ -82,10 +93,11 @@ func (q *Queries) GetUserReactionsForTargetUser(ctx context.Context, arg GetUser
 		return nil, err
 	}
 	defer rows.Close()
-	var items []UserReaction
+	var items []GetUserReactionsForTargetUserRow
 	for rows.Next() {
-		var i UserReaction
+		var i GetUserReactionsForTargetUserRow
 		if err := rows.Scan(
+			&i.ID,
 			&i.ReactorUserID,
 			&i.RatingUserID,
 			&i.MediaID,
@@ -118,7 +130,7 @@ ON CONFLICT (reactor_user_id, rating_user_id, media_id)
 DO UPDATE SET
   reaction = EXCLUDED.reaction,
   updated_at = NOW()
-RETURNING reactor_user_id, rating_user_id, media_id, reaction, created_at, updated_at
+RETURNING id, reactor_user_id, rating_user_id, media_id, reaction, created_at, updated_at
 `
 
 type UpsertUserReactionParams struct {
@@ -128,15 +140,26 @@ type UpsertUserReactionParams struct {
 	Reaction      ReactionType
 }
 
-func (q *Queries) UpsertUserReaction(ctx context.Context, arg UpsertUserReactionParams) (UserReaction, error) {
+type UpsertUserReactionRow struct {
+	ID            uuid.UUID
+	ReactorUserID uuid.UUID
+	RatingUserID  uuid.UUID
+	MediaID       uuid.UUID
+	Reaction      ReactionType
+	CreatedAt     time.Time
+	UpdatedAt     time.Time
+}
+
+func (q *Queries) UpsertUserReaction(ctx context.Context, arg UpsertUserReactionParams) (UpsertUserReactionRow, error) {
 	row := q.db.QueryRowContext(ctx, upsertUserReaction,
 		arg.ReactorUserID,
 		arg.RatingUserID,
 		arg.MediaID,
 		arg.Reaction,
 	)
-	var i UserReaction
+	var i UpsertUserReactionRow
 	err := row.Scan(
+		&i.ID,
 		&i.ReactorUserID,
 		&i.RatingUserID,
 		&i.MediaID,
