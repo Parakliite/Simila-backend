@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/deltron-fr/filmbox/server/internal/database"
+	"github.com/deltron-fr/filmbox/server/internal/validator"
 	"github.com/google/uuid"
 )
 
@@ -162,4 +163,30 @@ func (m WatchlistModel) GetAllItemsInWatchlist(
 	}
 
 	return items, nil
+}
+
+func ValidateWatchlistSource(v *validator.Validator, source string) {
+	v.Check(source != "", "source", "must be provided")
+	v.Check(
+		validator.In(
+			source,
+			string(database.SourceTypeSelf),
+			string(database.SourceTypeFromMatch),
+		),
+		"source",
+		"must be a valid source type",
+	)
+}
+
+func ValidateWatchlistStatus(v *validator.Validator, status string) {
+	v.Check(status != "", "status", "must be provided")
+	v.Check(
+		validator.In(
+			status,
+			string(database.StatusTypeWatched),
+			string(database.StatusTypeNotWatched),
+		),
+		"status",
+		"must be a valid watchlist status",
+	)
 }

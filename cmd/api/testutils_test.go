@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/deltron-fr/filmbox/server/internal/data"
+	"github.com/deltron-fr/filmbox/server/internal/database"
 	"github.com/deltron-fr/filmbox/server/internal/jsonlog"
 	"github.com/google/uuid"
 )
@@ -311,6 +312,102 @@ func (m *mockReactionModel) GetUserReactionsForTargetUser(
 	return reactions, nil
 }
 
+// --- mock watchlist model ---
+
+type mockWatchlistModel struct {
+	items map[string]data.UserWatchlistItem
+}
+
+func newMockWatchlistModel() *mockWatchlistModel {
+	return &mockWatchlistModel{
+		items: make(map[string]data.UserWatchlistItem),
+	}
+}
+
+func watchlistKey(userID, mediaID uuid.UUID) string {
+	return userID.String() + ":" + mediaID.String()
+}
+
+func (m *mockWatchlistModel) InsertMediaToWatchlist(ctx context.Context, watchlist data.Watchlist) (data.Watchlist, error) {
+	now := time.Now()
+	watchlist.CreatedAt = now
+	watchlist.Status = string(database.StatusTypeNotWatched)
+
+	key := watchlistKey(watchlist.UserID, watchlist.MediaID)
+	m.items[key] = data.UserWatchlistItem{
+		Media: data.Media{
+			ID: watchlist.MediaID,
+		},
+		Watchlist: watchlist,
+	}
+
+	return watchlist, nil
+}
+
+func (m *mockWatchlistModel) UpdateWatchlistItemStatus(
+	ctx context.Context,
+	userID, mediaID uuid.UUID,
+	status string,
+) (data.Watchlist, error) {
+	key := watchlistKey(userID, mediaID)
+	item, ok := m.items[key]
+	if !ok {
+		return data.Watchlist{}, data.ErrRecordNotFound
+	}
+
+	item.Watchlist.Status = status
+	m.items[key] = item
+
+	return item.Watchlist, nil
+}
+
+func (m *mockWatchlistModel) DeleteMediaFromWatchlist(ctx context.Context, userID, mediaID uuid.UUID) error {
+	key := watchlistKey(userID, mediaID)
+	if _, ok := m.items[key]; !ok {
+		return data.ErrRecordNotFound
+	}
+
+	delete(m.items, key)
+	return nil
+}
+
+func (m *mockWatchlistModel) GetAllItemsInWatchlist(
+	ctx context.Context,
+	createdAt time.Time,
+	limit int32,
+	userID, mediaID uuid.UUID,
+) ([]data.UserWatchlistItem, error) {
+	var items []data.UserWatchlistItem
+
+	for _, item := range m.items {
+		if item.Watchlist.UserID != userID {
+			continue
+		}
+		if !createdAt.IsZero() {
+			if item.Watchlist.CreatedAt.After(createdAt) {
+				continue
+			}
+			if item.Watchlist.CreatedAt.Equal(createdAt) && item.Watchlist.MediaID.String() >= mediaID.String() {
+				continue
+			}
+		}
+		items = append(items, item)
+	}
+
+	sort.Slice(items, func(i, j int) bool {
+		if items[i].Watchlist.CreatedAt.Equal(items[j].Watchlist.CreatedAt) {
+			return items[i].Watchlist.MediaID.String() > items[j].Watchlist.MediaID.String()
+		}
+		return items[i].Watchlist.CreatedAt.After(items[j].Watchlist.CreatedAt)
+	})
+
+	if len(items) > int(limit) {
+		items = items[:limit]
+	}
+
+	return items, nil
+}
+
 // --- helpers ---
 
 func newTestApp(tmdbURL string) *application {
@@ -327,6 +424,7 @@ func newTestApp(tmdbURL string) *application {
 			Ratings:   newMockRatingModel(),
 			Matches:   &mockMatchModel{},
 			Reactions: newMockReactionModel(),
+			Watchlist: newMockWatchlistModel(),
 		},
 	}
 }

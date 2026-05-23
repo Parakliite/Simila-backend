@@ -42,6 +42,15 @@ func (app *application) routes() http.Handler {
 	mux.Handle("GET /api/v1/ratings/{rating_user_id}/{media_id}/reactions/count",
 		app.authenticate(http.HandlerFunc(app.requireActivatedUser(app.getReactionCountForRatingHandler))))
 
+	mux.Handle("POST /api/v1/watchlist",
+		app.authenticate(http.HandlerFunc(app.requireActivatedUser(app.insertToWatchlistHandler))))
+	mux.Handle("GET /api/v1/watchlist",
+		app.authenticate(http.HandlerFunc(app.requireActivatedUser(app.listWatchlistItemsHandler))))
+	mux.Handle("PATCH /api/v1/watchlist/{media_id}",
+		app.authenticate(http.HandlerFunc(app.requireActivatedUser(app.updateWatchlistStatusHandler))))
+	mux.Handle("DELETE /api/v1/watchlist/{media_id}",
+		app.authenticate(http.HandlerFunc(app.requireActivatedUser(app.deleteWatchlistItemHandler))))
+
 	mux.HandleFunc("/", app.notFoundResponse)
 
 	return app.metrics(app.recoverPanic(app.enableCORS(mux)))
