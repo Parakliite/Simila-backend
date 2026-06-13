@@ -9,7 +9,85 @@ import (
 	"github.com/deltron-fr/filmbox/server/internal/validator"
 )
 
-// TODO: User update profile endpoint
+func (app *application) getUserProfileHandler(w http.ResponseWriter, r *http.Request) {
+	authenticatedUser := app.contextGetUser(r)
+
+	user, err := app.models.Users.GetByID(r.Context(), authenticatedUser.ID)
+	if err != nil {
+		switch {
+		case errors.Is(err, data.ErrRecordNotFound):
+			app.notFoundResponse(w, r)
+		default:
+			app.serverErrorResponse(w, r, err)
+		}
+		return
+	}
+
+	err = app.writeJSON(w, http.StatusOK, envelope{"user": user}, nil)
+	if err != nil {
+		app.serverErrorResponse(w, r, err)
+	}
+}
+
+func (app *application) updateUserProfileHandler(w http.ResponseWriter, r *http.Request) {
+	user := app.contextGetUser(r)
+
+	var input struct {
+		Name              *string `json:"name"`
+		About             *string `json:"about"`
+		ProfilePictureURL *string `json:"profile_picture_url"`
+	}
+
+	err := app.readJSON(w, r, &input)
+	if err != nil {
+		app.badRequestResponse(w, r, err)
+		return
+	}
+
+	v := validator.New()
+	if input.Name == nil && input.About == nil && input.ProfilePictureURL == nil {
+		v.AddError("body", "must provide at least one field to update")
+	}
+
+	if input.Name != nil {
+		v.Check(*input.Name != "", "name", "must be provided")
+		v.Check(len(*input.Name) <= 500, "name", "must not be more than 500 bytes long")
+	}
+
+	if !v.Valid() {
+		app.failedValidationResponse(w, r, v.Errors)
+		return
+	}
+
+	if input.Name != nil {
+		user.Name = *input.Name
+	}
+	if input.About != nil {
+		user.About = *input.About
+	}
+	if input.ProfilePictureURL != nil {
+		user.ProfilePictureURL = *input.ProfilePictureURL
+	}
+
+	err = app.models.Users.UpdateUser(r.Context(), user)
+	if err != nil {
+		switch {
+		case errors.Is(err, data.ErrDuplicateEmail):
+			v.AddError("email", "a user with this email address already exists")
+			app.failedValidationResponse(w, r, v.Errors)
+		case errors.Is(err, data.ErrEditConflict):
+			app.editConflictResponse(w, r)
+		default:
+			app.serverErrorResponse(w, r, err)
+		}
+		return
+	}
+
+	err = app.writeJSON(w, http.StatusOK, envelope{"user": user}, nil)
+	if err != nil {
+		app.serverErrorResponse(w, r, err)
+	}
+}
 
 func (app *application) registerUserHandler(w http.ResponseWriter, r *http.Request) {
 	// an anonymous struct to hold the request data from the expected body

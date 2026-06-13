@@ -19,6 +19,11 @@ func (app *application) routes() http.Handler {
 	mux.Handle("GET /api/v1/media/{id}",
 		app.authenticate(http.HandlerFunc(app.requireActivatedUser(app.getMediaHandler))))
 
+	mux.Handle("GET /api/v1/users/profile",
+		app.authenticate(http.HandlerFunc(app.requireActivatedUser(app.getUserProfileHandler))))
+	mux.Handle("PATCH /api/v1/users/profile",
+		app.authenticate(http.HandlerFunc(app.requireActivatedUser(app.updateUserProfileHandler))))
+
 	mux.Handle("GET /api/v1/media/search",
 		app.authenticate(http.HandlerFunc(app.requireActivatedUser(app.getMediaSearchHandler))))
 
