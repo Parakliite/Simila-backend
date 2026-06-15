@@ -2,7 +2,6 @@ package main
 
 import (
 	"context"
-	"database/sql"
 	"fmt"
 	"io"
 	"net/http"
@@ -34,7 +33,7 @@ func (m *mockMediaModel) GetMedia(ctx context.Context, id int32, mediaType strin
 	key := fmt.Sprintf("%d:%s", id, mediaType)
 	media, ok := m.media[key]
 	if !ok {
-		return nil, sql.ErrNoRows
+		return nil, data.ErrRecordNotFound
 	}
 	return media, nil
 }

@@ -86,8 +86,8 @@ func (app *application) listRatingsHandler(w http.ResponseWriter, r *http.Reques
 
 	cursorStr := app.readString(qs, "cursor", "")
 
-	var cursorCreatedAt time.Time
-	var cursorMediaID uuid.UUID
+	cursorCreatedAt := time.Date(9999, 12, 31, 23, 59, 59, 0, time.UTC)
+	cursorMediaID := maxCursorUUID
 
 	if cursorStr != "" {
 		var err error
@@ -105,6 +105,10 @@ func (app *application) listRatingsHandler(w http.ResponseWriter, r *http.Reques
 		user.ID,
 		cursorMediaID,
 	)
+	if err != nil {
+		app.serverErrorResponse(w, r, err)
+		return
+	}
 
 	var nextCursor *string
 	if len(ratings) > limit {
@@ -148,7 +152,6 @@ func (app *application) getRatingHandler(w http.ResponseWriter, r *http.Request)
 		app.serverErrorResponse(w, r, err)
 	}
 }
-
 
 func (app *application) listRatingsForMedia(w http.ResponseWriter, r *http.Request) {
 	mediaID, err := uuid.Parse(r.PathValue("media_id"))

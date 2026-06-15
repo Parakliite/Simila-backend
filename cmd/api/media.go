@@ -2,7 +2,6 @@ package main
 
 import (
 	"context"
-	"database/sql"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -52,7 +51,7 @@ func (app *application) getMediaHandler(w http.ResponseWriter, r *http.Request) 
 
 	media, err := app.models.Movies.GetMedia(r.Context(), id, mediaType)
 	if err != nil {
-		if errors.Is(err, sql.ErrNoRows) {
+		if errors.Is(err, data.ErrRecordNotFound) {
 			media, err = app.fetchAndSaveMedia(r.Context(), id, mediaType)
 			if err != nil {
 				app.serverErrorResponse(w, r, err)
@@ -62,6 +61,10 @@ func (app *application) getMediaHandler(w http.ResponseWriter, r *http.Request) 
 			app.serverErrorResponse(w, r, err)
 			return
 		}
+	}
+
+	if media.Genre == nil {
+		media.Genre = []data.Genre{}
 	}
 
 	app.writeJSON(w, http.StatusOK, envelope{"media": media}, nil)
@@ -129,8 +132,14 @@ func (app *application) fetchAndSaveMedia(ctx context.Context, tmdbID int32, med
 
 	client := &http.Client{Timeout: 5 * time.Second}
 	resp, err := client.Do(req)
-	if err != nil || resp.StatusCode != 200 {
-		return nil, errors.New("failed to fetch from TMDB")
+	if err != nil {
+		return nil, fmt.Errorf("failed to fetch from TMDB: %v", err)
+	}
+
+	if resp.StatusCode != 200 {
+		b := make([]byte, 1024)
+		n, _ := resp.Body.Read(b)
+		return nil, fmt.Errorf("failed to fetch from TMDB: statusCode: %v resp: %v", resp.StatusCode, string(b[:n]))
 	}
 	defer resp.Body.Close()
 
@@ -145,6 +154,7 @@ func (app *application) fetchAndSaveMedia(ctx context.Context, tmdbID int32, med
 		Overview:     r.Overview,
 		PosterPath:   r.PosterPath,
 		BackdropPath: r.BackdropPath,
+		Genre:        []data.Genre{},
 	}
 
 	if mediaType == "movie" {

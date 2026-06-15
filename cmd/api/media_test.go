@@ -168,6 +168,9 @@ func TestGetMedia_ReturnsCachedMedia(t *testing.T) {
 	if got.Title != "Fight Club" {
 		t.Errorf("expected title %q, got %q", "Fight Club", got.Title)
 	}
+	if got.Genre == nil {
+		t.Fatalf("expected genre to serialize as an empty array, got nil")
+	}
 }
 
 func TestGetMedia_InvalidType(t *testing.T) {
@@ -246,6 +249,42 @@ func TestGetMedia_FetchesMoveGenres(t *testing.T) {
 	}
 	if got.Genre[0].GenreName != "Drama" {
 		t.Errorf("expected first genre %q, got %q", "Drama", got.Genre[0].GenreName)
+	}
+}
+
+func TestGetMedia_ReturnsEmptyGenreArrayForCachedMediaWithoutGenres(t *testing.T) {
+	tmdb := newTMDBServer()
+	defer tmdb.Close()
+	app := newTestApp(tmdb.URL)
+
+	cached := &data.Media{
+		TmdbID:    121,
+		Title:     "The Lord of the Rings: The Two Towers",
+		MediaType: "movie",
+		Runtime:   data.Runtime(179),
+	}
+	app.models.Movies.(*mockMediaModel).media["121:movie"] = cached
+
+	req := httptest.NewRequest("GET", "/api/v1/media/121?type=movie", nil)
+	req.SetPathValue("id", "121")
+	rr := httptest.NewRecorder()
+
+	app.getMediaHandler(rr, req)
+
+	if rr.Code != http.StatusOK {
+		t.Fatalf("expected status 200, got %d", rr.Code)
+	}
+
+	var resp map[string]any
+	json.Unmarshal(rr.Body.Bytes(), &resp)
+	got := resp["media"].(map[string]any)
+
+	genres, ok := got["genre"].([]any)
+	if !ok {
+		t.Fatalf("expected genre to be an array, got %T", got["genre"])
+	}
+	if len(genres) != 0 {
+		t.Fatalf("expected empty genre array, got %d items", len(genres))
 	}
 }
 

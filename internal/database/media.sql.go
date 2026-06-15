@@ -148,12 +148,12 @@ SELECT  media.id,
         media.release_date,
         media.runtime,
         media.media_type,
-        (
+        COALESCE((
             SELECT json_agg(genres.name)
             FROM genres
             JOIN media_genres ON genres.id = media_genres.genre_id
             WHERE media_genres.media_id = media.id
-        ) AS genres
+        ), '[]'::json) AS genres
 FROM media
 WHERE media.tmdb_id = $1 AND media.media_type = $2
 `

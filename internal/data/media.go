@@ -3,6 +3,7 @@ package data
 import (
 	"context"
 	"database/sql"
+	"encoding/json"
 	"errors"
 	"time"
 
@@ -98,8 +99,22 @@ func (m MediaModel) GetMedia(ctx context.Context, id int32, mediaType string) (*
 		}
 	}
 
+	genres := make([]Genre, 0)
+	if len(media.Genres) > 0 {
+		var genreNames []string
+		if err := json.Unmarshal(media.Genres, &genreNames); err != nil {
+			return nil, err
+		}
+
+		genres = make([]Genre, 0, len(genreNames))
+		for _, name := range genreNames {
+			genres = append(genres, Genre{GenreName: name})
+		}
+	}
+
 	return &Media{
 		ID:            media.ID,
+		Genre:         genres,
 		TmdbID:        media.TmdbID,
 		Title:         media.Title,
 		OriginalTitle: media.OriginalTitle,
