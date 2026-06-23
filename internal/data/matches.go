@@ -115,6 +115,6 @@ func toRating(row database.GetAllUserRatingsRow) Rating {
 	return Rating{
 		MediaID:     row.MediaID,
 		UserID:      row.UserID,
-		RatingValue: row.RatingValue,
+		RatingValue: translateRatingValueOutbound(row.RatingValue),
 	}
 }

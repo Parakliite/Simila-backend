@@ -167,6 +167,19 @@ func ratingKey(userID, mediaID uuid.UUID) string {
 	return userID.String() + ":" + mediaID.String()
 }
 
+func translateMockRatingValueInbound(value float64) float64 {
+	return value * 2
+}
+
+func translateMockRatingValueOutbound(value float64) float64 {
+	return value / 2.0
+}
+
+func translateMockUserRatingOutbound(userRating data.UserRating) data.UserRating {
+	userRating.Rating.RatingValue = translateMockRatingValueOutbound(userRating.Rating.RatingValue)
+	return userRating
+}
+
 func (m *mockRatingModel) UpsertUserRating(ctx context.Context, rating data.Rating) (data.Rating, error) {
 	now := time.Now()
 	key := ratingKey(rating.UserID, rating.MediaID)
@@ -176,7 +189,12 @@ func (m *mockRatingModel) UpsertUserRating(ctx context.Context, rating data.Rati
 		rating.CreatedAt = now
 	}
 	rating.UpdatedAt = now
-	m.ratings[key] = data.UserRating{Rating: rating}
+
+	storedRating := rating
+	storedRating.RatingValue = translateMockRatingValueInbound(rating.RatingValue)
+	m.ratings[key] = data.UserRating{Rating: storedRating}
+
+	rating.RatingValue = translateMockRatingValueOutbound(storedRating.RatingValue)
 	return rating, nil
 }
 
@@ -195,16 +213,24 @@ func (m *mockRatingModel) GetUsersRating(ctx context.Context, userID, mediaID uu
 	if !ok {
 		return data.UserRating{}, data.ErrRecordNotFound
 	}
-	return ur, nil
+	return translateMockUserRatingOutbound(ur), nil
 }
 
 func (m *mockRatingModel) GetUsersRatings(ctx context.Context, createdAt time.Time, limit int32, userID, mediaID uuid.UUID) ([]data.UserRating, error) {
 	var result []data.UserRating
 	for _, ur := range m.ratings {
 		if ur.Rating.UserID == userID {
-			result = append(result, ur)
+			result = append(result, translateMockUserRatingOutbound(ur))
 		}
 	}
+
+	sort.Slice(result, func(i, j int) bool {
+		if result[i].Rating.CreatedAt.Equal(result[j].Rating.CreatedAt) {
+			return result[i].Rating.MediaID.String() > result[j].Rating.MediaID.String()
+		}
+		return result[i].Rating.CreatedAt.After(result[j].Rating.CreatedAt)
+	})
+
 	return result, nil
 }
 
@@ -212,9 +238,17 @@ func (m *mockRatingModel) GetAllRatingsForSingleMedia(ctx context.Context, creat
 	var result []data.UserRating
 	for _, ur := range m.ratings {
 		if ur.Rating.MediaID == mediaID {
-			result = append(result, ur)
+			result = append(result, translateMockUserRatingOutbound(ur))
 		}
 	}
+
+	sort.Slice(result, func(i, j int) bool {
+		if result[i].Rating.CreatedAt.Equal(result[j].Rating.CreatedAt) {
+			return result[i].Rating.UserID.String() > result[j].Rating.UserID.String()
+		}
+		return result[i].Rating.CreatedAt.After(result[j].Rating.CreatedAt)
+	})
+
 	return result, nil
 }
 

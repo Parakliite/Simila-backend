@@ -189,3 +189,11 @@ func (app *application) encodeCursor(u uuid.UUID, t time.Time) string {
 	s := fmt.Sprintf("%v_%v", t, u)
 	return base64.URLEncoding.EncodeToString([]byte(s))
 }
+
+func (app *application) translateRatingValueOutbound(value int32) float64 {
+	return float64(value) / 2.0
+}
+
+func (app *application) translateRatingValueInbound(value float64) int32 {
+	return int32(value * 2)
+}

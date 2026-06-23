@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"net/http"
 	"net/http/httptest"
+	"sort"
 	"strings"
 	"testing"
 
@@ -12,14 +13,54 @@ import (
 	"github.com/google/uuid"
 )
 
+func assertFloatRatingValue(t *testing.T, got any, want float64) {
+	t.Helper()
+
+	value, ok := got.(float64)
+	if !ok {
+		t.Fatalf("expected rating_value to be a float64, got %T", got)
+	}
+
+	if value != want {
+		t.Fatalf("expected rating_value %.1f, got %.1f", want, value)
+	}
+}
+
+func sortedResponseRatingValues(t *testing.T, ratings []any) []float64 {
+	t.Helper()
+
+	values := make([]float64, 0, len(ratings))
+	for _, item := range ratings {
+		userRating, ok := item.(map[string]any)
+		if !ok {
+			t.Fatalf("expected list item to be an object, got %T", item)
+		}
+
+		rating, ok := userRating["rating"].(map[string]any)
+		if !ok {
+			t.Fatalf("expected nested rating object, got %T", userRating["rating"])
+		}
+
+		value, ok := rating["rating_value"].(float64)
+		if !ok {
+			t.Fatalf("expected nested rating_value to be a float64, got %T", rating["rating_value"])
+		}
+
+		values = append(values, value)
+	}
+
+	sort.Float64s(values)
+	return values
+}
+
 // --- upsertRatingHandler tests ---
 
-func TestUpsertRating_ValidRating(t *testing.T) {
+func TestUpsertRating_ValidHalfStepRatingIsReturnedOnClientScale(t *testing.T) {
 	app := newTestApp("")
 	user := newTestUser("Alice", "alice@example.com", "password123", true)
 	mediaID := uuid.New()
 
-	body := fmt.Sprintf(`{"media_id":"%s","rating_value":8}`, mediaID)
+	body := fmt.Sprintf(`{"media_id":"%s","rating_value":4.5}`, mediaID)
 	req := httptest.NewRequest("PUT", "/api/v1/ratings", strings.NewReader(body))
 	req = withUser(req, user)
 	rr := httptest.NewRecorder()
@@ -34,26 +75,24 @@ func TestUpsertRating_ValidRating(t *testing.T) {
 	json.Unmarshal(rr.Body.Bytes(), &resp)
 
 	rating := resp["rating"].(map[string]any)
-	if int(rating["rating_value"].(float64)) != 8 {
-		t.Errorf("expected rating_value 8, got %v", rating["rating_value"])
-	}
+	assertFloatRatingValue(t, rating["rating_value"], 4.5)
 	if rating["media_id"] != mediaID.String() {
 		t.Errorf("expected media_id %s, got %v", mediaID, rating["media_id"])
 	}
 }
 
-func TestUpsertRating_UpdatesExisting(t *testing.T) {
+func TestUpsertRating_UpdatesExistingRatingAndReturnsClientScale(t *testing.T) {
 	app := newTestApp("")
 	user := newTestUser("Alice", "alice@example.com", "password123", true)
 	mediaID := uuid.New()
 
-	body := fmt.Sprintf(`{"media_id":"%s","rating_value":5}`, mediaID)
+	body := fmt.Sprintf(`{"media_id":"%s","rating_value":2.5}`, mediaID)
 	req := httptest.NewRequest("PUT", "/api/v1/ratings", strings.NewReader(body))
 	req = withUser(req, user)
 	rr := httptest.NewRecorder()
 	app.upsertRatingHandler(rr, req)
 
-	body = fmt.Sprintf(`{"media_id":"%s","rating_value":9}`, mediaID)
+	body = fmt.Sprintf(`{"media_id":"%s","rating_value":3.5}`, mediaID)
 	req = httptest.NewRequest("PUT", "/api/v1/ratings", strings.NewReader(body))
 	req = withUser(req, user)
 	rr = httptest.NewRecorder()
@@ -67,9 +106,7 @@ func TestUpsertRating_UpdatesExisting(t *testing.T) {
 	json.Unmarshal(rr.Body.Bytes(), &resp)
 
 	rating := resp["rating"].(map[string]any)
-	if int(rating["rating_value"].(float64)) != 9 {
-		t.Errorf("expected updated rating_value 9, got %v", rating["rating_value"])
-	}
+	assertFloatRatingValue(t, rating["rating_value"], 3.5)
 }
 
 func TestUpsertRating_EmptyBody(t *testing.T) {
@@ -91,7 +128,7 @@ func TestUpsertRating_RatingTooHigh(t *testing.T) {
 	app := newTestApp("")
 	user := newTestUser("Alice", "alice@example.com", "password123", true)
 
-	body := fmt.Sprintf(`{"media_id":"%s","rating_value":11}`, uuid.New())
+	body := fmt.Sprintf(`{"media_id":"%s","rating_value":5.5}`, uuid.New())
 	req := httptest.NewRequest("PUT", "/api/v1/ratings", strings.NewReader(body))
 	req = withUser(req, user)
 	rr := httptest.NewRecorder()
@@ -107,7 +144,7 @@ func TestUpsertRating_RatingTooLow(t *testing.T) {
 	app := newTestApp("")
 	user := newTestUser("Alice", "alice@example.com", "password123", true)
 
-	body := fmt.Sprintf(`{"media_id":"%s","rating_value":0}`, uuid.New())
+	body := fmt.Sprintf(`{"media_id":"%s","rating_value":0.5}`, uuid.New())
 	req := httptest.NewRequest("PUT", "/api/v1/ratings", strings.NewReader(body))
 	req = withUser(req, user)
 	rr := httptest.NewRecorder()
@@ -128,7 +165,7 @@ func TestDeleteRating_Existing(t *testing.T) {
 
 	mock := app.models.Ratings.(*mockRatingModel)
 	mock.ratings[ratingKey(user.ID, mediaID)] = data.UserRating{
-		Rating: data.Rating{UserID: user.ID, MediaID: mediaID, RatingValue: 7},
+		Rating: data.Rating{UserID: user.ID, MediaID: mediaID, RatingValue: 8},
 	}
 
 	req := httptest.NewRequest("DELETE", "/api/v1/ratings/"+mediaID.String(), nil)
@@ -178,7 +215,7 @@ func TestDeleteRating_InvalidMediaID(t *testing.T) {
 
 // --- getRatingHandler tests ---
 
-func TestGetRating_Existing(t *testing.T) {
+func TestGetRating_ExistingReturnsTranslatedRatingValue(t *testing.T) {
 	app := newTestApp("")
 	user := newTestUser("Alice", "alice@example.com", "password123", true)
 	mediaID := uuid.New()
@@ -204,9 +241,7 @@ func TestGetRating_Existing(t *testing.T) {
 
 	rating := resp["rating"].(map[string]any)
 	r := rating["rating"].(map[string]any)
-	if int(r["rating_value"].(float64)) != 7 {
-		t.Errorf("expected rating_value 7, got %v", r["rating_value"])
-	}
+	assertFloatRatingValue(t, r["rating_value"], 3.5)
 }
 
 func TestGetRating_NonExistent(t *testing.T) {
@@ -244,15 +279,21 @@ func TestGetRating_InvalidMediaID(t *testing.T) {
 
 // --- listRatingsHandler tests ---
 
-func TestListRatings_ReturnsUserRatings(t *testing.T) {
+func TestListRatings_ReturnsTranslatedUserRatings(t *testing.T) {
 	app := newTestApp("")
 	user := newTestUser("Alice", "alice@example.com", "password123", true)
 
 	mock := app.models.Ratings.(*mockRatingModel)
-	for i := 0; i < 3; i++ {
-		mediaID := uuid.New()
-		mock.ratings[ratingKey(user.ID, mediaID)] = data.UserRating{
-			Rating: data.Rating{UserID: user.ID, MediaID: mediaID, RatingValue: int32(i + 5)},
+	for _, tc := range []struct {
+		mediaID      uuid.UUID
+		storedRating float64
+	}{
+		{mediaID: uuid.New(), storedRating: 10},
+		{mediaID: uuid.New(), storedRating: 9},
+		{mediaID: uuid.New(), storedRating: 7},
+	} {
+		mock.ratings[ratingKey(user.ID, tc.mediaID)] = data.UserRating{
+			Rating: data.Rating{UserID: user.ID, MediaID: tc.mediaID, RatingValue: tc.storedRating},
 		}
 	}
 
@@ -273,6 +314,14 @@ func TestListRatings_ReturnsUserRatings(t *testing.T) {
 	if len(ratings) != 3 {
 		t.Errorf("expected 3 ratings, got %d", len(ratings))
 	}
+
+	values := sortedResponseRatingValues(t, ratings)
+	want := []float64{3.5, 4.5, 5.0}
+	for i := range want {
+		if values[i] != want[i] {
+			t.Fatalf("expected translated ratings %v, got %v", want, values)
+		}
+	}
 }
 
 func TestListRatings_EmptyForNewUser(t *testing.T) {
@@ -292,16 +341,21 @@ func TestListRatings_EmptyForNewUser(t *testing.T) {
 
 // --- listRatingsForMedia tests ---
 
-func TestListRatingsForMedia_ReturnsRatings(t *testing.T) {
+func TestListRatingsForMedia_ReturnsTranslatedRatings(t *testing.T) {
 	app := newTestApp("")
 	user := newTestUser("Alice", "alice@example.com", "password123", true)
 	mediaID := uuid.New()
 
 	mock := app.models.Ratings.(*mockRatingModel)
-	for i := 0; i < 2; i++ {
-		uid := uuid.New()
-		mock.ratings[ratingKey(uid, mediaID)] = data.UserRating{
-			Rating: data.Rating{UserID: uid, MediaID: mediaID, RatingValue: int32(i + 6)},
+	for _, tc := range []struct {
+		userID       uuid.UUID
+		storedRating float64
+	}{
+		{userID: uuid.New(), storedRating: 8},
+		{userID: uuid.New(), storedRating: 3},
+	} {
+		mock.ratings[ratingKey(tc.userID, mediaID)] = data.UserRating{
+			Rating: data.Rating{UserID: tc.userID, MediaID: mediaID, RatingValue: tc.storedRating},
 		}
 	}
 
@@ -322,6 +376,14 @@ func TestListRatingsForMedia_ReturnsRatings(t *testing.T) {
 	ratings := resp["ratings"].([]any)
 	if len(ratings) != 2 {
 		t.Errorf("expected 2 ratings, got %d", len(ratings))
+	}
+
+	values := sortedResponseRatingValues(t, ratings)
+	want := []float64{1.5, 4.0}
+	for i := range want {
+		if values[i] != want[i] {
+			t.Fatalf("expected translated ratings %v, got %v", want, values)
+		}
 	}
 }
 

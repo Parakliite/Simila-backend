@@ -20,7 +20,7 @@ type RatingModel struct {
 type Rating struct {
 	MediaID     uuid.UUID  `json:"media_id"`
 	UserID      uuid.UUID  `json:"user_id"`
-	RatingValue int32      `json:"rating_value"`
+	RatingValue float64    `json:"rating_value"`
 	WatchedDate *time.Time `json:"watched_date"`
 	CreatedAt   time.Time  `json:"created_at"`
 	UpdatedAt   time.Time  `json:"updated_at"`
@@ -29,6 +29,14 @@ type Rating struct {
 type UserRating struct {
 	Media  Media  `json:"media"`
 	Rating Rating `json:"rating"`
+}
+
+func translateRatingValueOutbound(value int32) float64 {
+	return float64(value) / 2.0
+}
+
+func translateRatingValueInbound(value float64) int32 {
+	return int32(value * 2)
 }
 
 func (r RatingModel) UpsertUserRating(ctx context.Context, rating Rating) (Rating, error) {
@@ -44,7 +52,7 @@ func (r RatingModel) UpsertUserRating(ctx context.Context, rating Rating) (Ratin
 		UserID:      rating.UserID,
 		MediaID:     rating.MediaID,
 		WatchedDate: watchedDate,
-		RatingValue: rating.RatingValue,
+		RatingValue: translateRatingValueInbound(rating.RatingValue),
 	})
 	if err != nil {
 		return Rating{}, fmt.Errorf("upsert user rating: %w", err)
@@ -53,7 +61,7 @@ func (r RatingModel) UpsertUserRating(ctx context.Context, rating Rating) (Ratin
 	return Rating{
 		MediaID:     row.MediaID,
 		UserID:      row.UserID,
-		RatingValue: row.RatingValue,
+		RatingValue: translateRatingValueOutbound(row.RatingValue),
 		WatchedDate: nullTimeToPtr(row.WatchedDate),
 		CreatedAt:   row.CreatedAt,
 		UpdatedAt:   row.UpdatedAt,
@@ -95,7 +103,10 @@ func (r RatingModel) GetUsersRatings(
 	var userRatings []UserRating
 
 	for _, row := range rows {
-		userRatings = append(userRatings, toUserRating(row))
+		ratingRow := toUserRating(row)
+		ratingRow.Rating.RatingValue = translateRatingValueOutbound(int32(ratingRow.Rating.RatingValue))
+		userRatings = append(userRatings, ratingRow)
+
 	}
 
 	return userRatings, nil
@@ -129,6 +140,7 @@ func (r RatingModel) GetUsersRating(
 		Rating: Rating{
 			UserID:      userID,
 			MediaID:     row.MediaID,
+			RatingValue: translateRatingValueOutbound(row.RatingValue),
 			WatchedDate: nullTimeToPtr(row.WatchedDate),
 			CreatedAt:   row.CreatedAt,
 			UpdatedAt:   row.UpdatedAt,
@@ -157,7 +169,10 @@ func (r RatingModel) GetAllRatingsForSingleMedia(
 
 	var usersRating []UserRating
 	for _, row := range rows {
-		usersRating = append(usersRating, toUserRatingForMedia(row))
+		ratingRow := toUserRatingForMedia(row)
+		ratingRow.Rating.RatingValue = translateRatingValueOutbound(int32(ratingRow.Rating.RatingValue))
+
+		usersRating = append(usersRating, ratingRow)
 	}
 
 	return usersRating, nil
@@ -204,7 +219,7 @@ func toUserRatingForMedia(row database.GetAllRatingsForSingleMediaRow) UserRatin
 	}
 }
 
-func ValidateRatingValue(v *validator.Validator, rValue int32) {
-	v.Check(rValue <= 10, "rating_value", "rating value must be between 1 to 10")
-	v.Check(rValue >= 1, "rating_value", "rating value must be between 1 to 10")
+func ValidateRatingValue(v *validator.Validator, rValue float64) {
+	v.Check(rValue <= 5.0, "rating_value", "rating value must be between 1 to 10")
+	v.Check(rValue >= 1.0, "rating_value", "rating value must be between 1 to 10")
 }

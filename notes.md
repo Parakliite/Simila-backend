@@ -41,7 +41,7 @@ counts/highlights feed, and the current reaction model cannot store the watched 
 but I still need to shape the filtering/state behavior around things like the watchlist buckets and how watched/not-watched items
 should be returned to the client.
 
-14. I need to define a proper translation layer(10->5) for ratings before sending results out to the clients.
+14. I need to define a proper translation layer(10->5) for ratings before sending results out to the clients. - `COMPLETED`
 
 
 ### Recommended order to pick next

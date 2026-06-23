@@ -15,7 +15,7 @@ func (app *application) upsertRatingHandler(w http.ResponseWriter, r *http.Reque
 	user := app.contextGetUser(r)
 	var input struct {
 		MediaID     uuid.UUID  `json:"media_id"`
-		RatingValue int32      `json:"rating_value"`
+		RatingValue float64      `json:"rating_value"`
 		WatchedDate *time.Time `json:"watched_date,omitempty"`
 	}
 
