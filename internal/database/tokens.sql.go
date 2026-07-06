@@ -13,20 +13,20 @@ import (
 )
 
 const createToken = `-- name: CreateToken :exec
-INSERT INTO tokens (hash, user_id, expiry, scope)
+INSERT INTO tokens (token_hash, user_id, expiry, scope)
 VALUES ($1, $2, $3, $4)
 `
 
 type CreateTokenParams struct {
-	Hash   []byte
-	UserID uuid.UUID
-	Expiry time.Time
-	Scope  string
+	TokenHash []byte
+	UserID    uuid.UUID
+	Expiry    time.Time
+	Scope     string
 }
 
 func (q *Queries) CreateToken(ctx context.Context, arg CreateTokenParams) error {
 	_, err := q.db.ExecContext(ctx, createToken,
-		arg.Hash,
+		arg.TokenHash,
 		arg.UserID,
 		arg.Expiry,
 		arg.Scope,

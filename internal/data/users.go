@@ -204,9 +204,9 @@ func (m UserModel) GetForToken(ctx context.Context, tokenScope, tokenPlaintext s
 	defer cancel()
 
 	row, err := m.q.GetTokenForUser(ctx, database.GetTokenForUserParams{
-		Hash:   tokenHash[:],
-		Scope:  tokenScope,
-		Expiry: time.Now().UTC(),
+		TokenHash: tokenHash[:],
+		Scope:     tokenScope,
+		Expiry:    time.Now().UTC(),
 	})
 	if err != nil {
 		switch {

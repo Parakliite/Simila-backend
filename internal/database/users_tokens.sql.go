@@ -27,15 +27,15 @@ SELECT users.id,
 FROM users 
 INNER JOIN tokens
 ON users.id = tokens.user_id
-WHERE tokens.hash = $1
+WHERE tokens.token_hash = $1
 AND tokens.scope = $2
 AND tokens.expiry > $3
 `
 
 type GetTokenForUserParams struct {
-	Hash   []byte
-	Scope  string
-	Expiry time.Time
+	TokenHash []byte
+	Scope     string
+	Expiry    time.Time
 }
 
 type GetTokenForUserRow struct {
@@ -51,7 +51,7 @@ type GetTokenForUserRow struct {
 }
 
 func (q *Queries) GetTokenForUser(ctx context.Context, arg GetTokenForUserParams) (GetTokenForUserRow, error) {
-	row := q.db.QueryRowContext(ctx, getTokenForUser, arg.Hash, arg.Scope, arg.Expiry)
+	row := q.db.QueryRowContext(ctx, getTokenForUser, arg.TokenHash, arg.Scope, arg.Expiry)
 	var i GetTokenForUserRow
 	err := row.Scan(
 		&i.ID,

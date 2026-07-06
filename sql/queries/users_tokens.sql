@@ -12,6 +12,6 @@ SELECT users.id,
 FROM users 
 INNER JOIN tokens
 ON users.id = tokens.user_id
-WHERE tokens.hash = $1
+WHERE tokens.token_hash = $1
 AND tokens.scope = $2
 AND tokens.expiry > $3;

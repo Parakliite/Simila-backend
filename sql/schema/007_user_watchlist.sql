@@ -23,3 +23,5 @@ CREATE TABLE user_watchlist (
 
 -- +goose Down
 DROP TABLE IF EXISTS user_watchlist;
+DROP TYPE IF EXISTS source_type;
+DROP TYPE IF EXISTS status_type;

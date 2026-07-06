@@ -75,10 +75,10 @@ func (m TokenModel) Insert(ctx context.Context, token *Token) error {
 	defer cancel()
 
 	err := m.q.CreateToken(ctx, database.CreateTokenParams{
-		Hash:   token.Hash,
-		UserID: token.UserID,
-		Expiry: token.Expiry,
-		Scope:  token.Scope,
+		TokenHash: token.Hash,
+		UserID:    token.UserID,
+		Expiry:    token.Expiry,
+		Scope:     token.Scope,
 	})
 
 	return err

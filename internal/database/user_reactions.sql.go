@@ -72,17 +72,7 @@ type GetUserReactionsForTargetUserParams struct {
 	CursorReactorUserID uuid.UUID
 }
 
-type GetUserReactionsForTargetUserRow struct {
-	ID            uuid.UUID
-	ReactorUserID uuid.UUID
-	RatingUserID  uuid.UUID
-	MediaID       uuid.UUID
-	Reaction      ReactionType
-	CreatedAt     time.Time
-	UpdatedAt     time.Time
-}
-
-func (q *Queries) GetUserReactionsForTargetUser(ctx context.Context, arg GetUserReactionsForTargetUserParams) ([]GetUserReactionsForTargetUserRow, error) {
+func (q *Queries) GetUserReactionsForTargetUser(ctx context.Context, arg GetUserReactionsForTargetUserParams) ([]UserReaction, error) {
 	rows, err := q.db.QueryContext(ctx, getUserReactionsForTargetUser,
 		arg.RatingUserID,
 		arg.Limit,
@@ -93,9 +83,9 @@ func (q *Queries) GetUserReactionsForTargetUser(ctx context.Context, arg GetUser
 		return nil, err
 	}
 	defer rows.Close()
-	var items []GetUserReactionsForTargetUserRow
+	var items []UserReaction
 	for rows.Next() {
-		var i GetUserReactionsForTargetUserRow
+		var i UserReaction
 		if err := rows.Scan(
 			&i.ID,
 			&i.ReactorUserID,
@@ -140,24 +130,14 @@ type UpsertUserReactionParams struct {
 	Reaction      ReactionType
 }
 
-type UpsertUserReactionRow struct {
-	ID            uuid.UUID
-	ReactorUserID uuid.UUID
-	RatingUserID  uuid.UUID
-	MediaID       uuid.UUID
-	Reaction      ReactionType
-	CreatedAt     time.Time
-	UpdatedAt     time.Time
-}
-
-func (q *Queries) UpsertUserReaction(ctx context.Context, arg UpsertUserReactionParams) (UpsertUserReactionRow, error) {
+func (q *Queries) UpsertUserReaction(ctx context.Context, arg UpsertUserReactionParams) (UserReaction, error) {
 	row := q.db.QueryRowContext(ctx, upsertUserReaction,
 		arg.ReactorUserID,
 		arg.RatingUserID,
 		arg.MediaID,
 		arg.Reaction,
 	)
-	var i UpsertUserReactionRow
+	var i UserReaction
 	err := row.Scan(
 		&i.ID,
 		&i.ReactorUserID,

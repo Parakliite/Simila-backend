@@ -407,13 +407,16 @@ func (m *mockWatchlistModel) DeleteMediaFromWatchlist(ctx context.Context, userI
 func (m *mockWatchlistModel) GetAllItemsInWatchlist(
 	ctx context.Context,
 	createdAt time.Time,
-	limit int32,
+	limit int32, status string,
 	userID, mediaID uuid.UUID,
 ) ([]data.UserWatchlistItem, error) {
 	var items []data.UserWatchlistItem
 
 	for _, item := range m.items {
 		if item.Watchlist.UserID != userID {
+			continue
+		}
+		if status != "" && item.Watchlist.Status != status {
 			continue
 		}
 		if !createdAt.IsZero() {

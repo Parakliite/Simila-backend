@@ -27,4 +27,5 @@ bin/
 Thumbs.db
 
 .codex
+.agents/
 notes.md

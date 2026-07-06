@@ -46,5 +46,8 @@ WHERE uw.user_id = $1
     sqlc.arg('cursor_created_at')::timestamptz = '0001-01-01 00:00:00+00'::timestamptz
     OR (uw.created_at, uw.media_id) < (sqlc.arg('cursor_created_at'), sqlc.arg('cursor_media_id')::UUID)
   )
+  AND (
+    sqlc.narg('status')::status_type IS NULL OR uw.status = sqlc.narg('status')
+  )
 ORDER BY uw.created_at DESC, uw.media_id DESC
 LIMIT $2;

@@ -67,7 +67,7 @@ type WatchlistQuerier interface {
 	GetAllItemsInWatchlist(
 		ctx context.Context,
 		createdAt time.Time,
-		limit int32,
+		limit int32, status string,
 		userID, mediaID uuid.UUID,
 	) ([]UserWatchlistItem, error)
 }

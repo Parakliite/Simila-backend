@@ -102,7 +102,7 @@ func (m MediaModel) GetMedia(ctx context.Context, id int32, mediaType string) (*
 	genres := make([]Genre, 0)
 	if len(media.Genres) > 0 {
 		var genreNames []string
-		if err := json.Unmarshal(media.Genres, &genreNames); err != nil {
+		if err := json.Unmarshal([]byte(media.Genres), &genreNames); err != nil {
 			return nil, err
 		}
 

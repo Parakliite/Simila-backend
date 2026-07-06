@@ -138,6 +138,8 @@ func (app *application) listWatchlistItemsHandler(w http.ResponseWriter, r *http
 		limit = 20
 	}
 
+	mediaStatus := app.readString(qs, "status", "")
+
 	cursorStr := app.readString(qs, "cursor", "")
 	var cursorCreatedAt time.Time
 	var cursorMediaID uuid.UUID
@@ -155,6 +157,7 @@ func (app *application) listWatchlistItemsHandler(w http.ResponseWriter, r *http
 		r.Context(),
 		cursorCreatedAt,
 		int32(limit+1),
+		mediaStatus,
 		user.ID,
 		cursorMediaID,
 	)

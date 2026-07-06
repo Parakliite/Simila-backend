@@ -177,10 +177,12 @@ type ReactionComment struct {
 }
 
 type Token struct {
-	Hash   []byte
-	UserID uuid.UUID
-	Expiry time.Time
-	Scope  string
+	TokenHash []byte
+	UserID    uuid.UUID
+	Expiry    time.Time
+	Scope     string
+	CreatedAt time.Time
+	RevokedAt sql.NullTime
 }
 
 type User struct {
@@ -215,13 +217,13 @@ type UserRating struct {
 }
 
 type UserReaction struct {
+	ID            uuid.UUID
 	ReactorUserID uuid.UUID
 	RatingUserID  uuid.UUID
 	MediaID       uuid.UUID
 	Reaction      ReactionType
 	CreatedAt     time.Time
 	UpdatedAt     time.Time
-	ID            uuid.UUID
 }
 
 type UserWatchlist struct {

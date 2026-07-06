@@ -57,6 +57,9 @@ WHERE uw.user_id = $1
     $3::timestamptz = '0001-01-01 00:00:00+00'::timestamptz
     OR (uw.created_at, uw.media_id) < ($3, $4::UUID)
   )
+  AND (
+    $5::status_type IS NULL OR uw.status = $5
+  )
 ORDER BY uw.created_at DESC, uw.media_id DESC
 LIMIT $2
 `
@@ -66,6 +69,7 @@ type GetAllItemsInWatchlistParams struct {
 	Limit           int32
 	CursorCreatedAt time.Time
 	CursorMediaID   uuid.UUID
+	Status          NullStatusType
 }
 
 type GetAllItemsInWatchlistRow struct {
@@ -92,6 +96,7 @@ func (q *Queries) GetAllItemsInWatchlist(ctx context.Context, arg GetAllItemsInW
 		arg.Limit,
 		arg.CursorCreatedAt,
 		arg.CursorMediaID,
+		arg.Status,
 	)
 	if err != nil {
 		return nil, err

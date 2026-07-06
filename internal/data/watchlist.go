@@ -120,17 +120,34 @@ func (m WatchlistModel) DeleteMediaFromWatchlist(ctx context.Context, userID, me
 func (m WatchlistModel) GetAllItemsInWatchlist(
 	ctx context.Context,
 	createdAt time.Time,
-	limit int32,
+	limit int32, status string,
 	userID, mediaID uuid.UUID,
 ) ([]UserWatchlistItem, error) {
 	ctx, cancel := context.WithTimeout(ctx, 3*time.Second)
 	defer cancel()
+
+	var statusType database.NullStatusType
+
+	if status != "" {
+		if status == "watched" {
+			statusType = database.NullStatusType{
+				StatusType: database.StatusTypeWatched,
+				Valid:      true,
+			}
+		} else {
+			statusType = database.NullStatusType{
+				StatusType: database.StatusTypeNotWatched,
+				Valid:      true,
+			}
+		}
+	}
 
 	rows, err := m.q.GetAllItemsInWatchlist(ctx, database.GetAllItemsInWatchlistParams{
 		UserID:          userID,
 		Limit:           limit,
 		CursorCreatedAt: createdAt,
 		CursorMediaID:   mediaID,
+		Status:          statusType,
 	})
 	if err != nil {
 		return nil, fmt.Errorf("get all items in watchlist: %w", err)

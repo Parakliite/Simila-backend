@@ -7,7 +7,6 @@ package database
 
 import (
 	"context"
-	"encoding/json"
 	"time"
 
 	"github.com/google/uuid"
@@ -153,7 +152,7 @@ SELECT  media.id,
             FROM genres
             JOIN media_genres ON genres.id = media_genres.genre_id
             WHERE media_genres.media_id = media.id
-        ), '[]'::json) AS genres
+        ), '[]'::json)::text AS genres
 FROM media
 WHERE media.tmdb_id = $1 AND media.media_type = $2
 `
@@ -174,7 +173,7 @@ type GetMediaRow struct {
 	ReleaseDate   time.Time
 	Runtime       int32
 	MediaType     string
-	Genres        json.RawMessage
+	Genres        string
 }
 
 func (q *Queries) GetMedia(ctx context.Context, arg GetMediaParams) (GetMediaRow, error) {
