@@ -145,6 +145,78 @@ func (q *Queries) GetAllUserRatings(ctx context.Context, userID uuid.UUID) ([]Ge
 	return items, nil
 }
 
+const getRandomMedia = `-- name: GetRandomMedia :many
+SELECT
+  m.id,
+  m.title,
+  m.original_title,
+  m.poster_path,
+  m.tmdb_id,
+  m.backdrop_path,
+  m.overview,
+  m.release_date,
+  m.runtime,
+  m.media_type
+FROM media AS m
+LEFT JOIN user_ratings as ur
+ON m.id = ur.media_id AND ur.user_id = $1
+WHERE ur.media_id IS NULL
+ORDER BY RANDOM()
+LIMIT $2
+`
+
+type GetRandomMediaParams struct {
+	UserID uuid.UUID
+	Limit  int32
+}
+
+type GetRandomMediaRow struct {
+	ID            uuid.UUID
+	Title         string
+	OriginalTitle string
+	PosterPath    string
+	TmdbID        int32
+	BackdropPath  string
+	Overview      string
+	ReleaseDate   time.Time
+	Runtime       int32
+	MediaType     string
+}
+
+func (q *Queries) GetRandomMedia(ctx context.Context, arg GetRandomMediaParams) ([]GetRandomMediaRow, error) {
+	rows, err := q.db.QueryContext(ctx, getRandomMedia, arg.UserID, arg.Limit)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []GetRandomMediaRow
+	for rows.Next() {
+		var i GetRandomMediaRow
+		if err := rows.Scan(
+			&i.ID,
+			&i.Title,
+			&i.OriginalTitle,
+			&i.PosterPath,
+			&i.TmdbID,
+			&i.BackdropPath,
+			&i.Overview,
+			&i.ReleaseDate,
+			&i.Runtime,
+			&i.MediaType,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const getSingleUserRating = `-- name: GetSingleUserRating :one
 SELECT 
   u.user_id, 

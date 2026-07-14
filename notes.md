@@ -17,7 +17,7 @@ Author: deltron-fr
 6. This is not really important right now but change the logging strategy to slog.
 
 7. There should be a dedicated endpoint that calls random movies/shows(returns about 5) but shows only 1 to the user for them to 
-rate - something like tiktok videos. This will be used to build the users taste over time
+rate - something like tiktok videos. This will be used to build the users taste over time 
 
 
 ### Additional missing / incorrect items found while comparing against the UI
@@ -39,7 +39,7 @@ counts/highlights feed, and the current reaction model cannot store the watched 
 
 13. The watchlist endpoints still need to better match the product behavior I actually want. The current model can support this,
 but I still need to shape the filtering/state behavior around things like the watchlist buckets and how watched/not-watched items
-should be returned to the client.
+should be returned to the client. - `COMPLETED - UP NEXT may need more work`
 
 14. I need to define a proper translation layer(10->5) for ratings before sending results out to the clients. - `COMPLETED`
 

@@ -26,6 +26,8 @@ func (app *application) routes() http.Handler {
 
 	mux.Handle("GET /api/v1/media/search",
 		app.authenticate(http.HandlerFunc(app.requireActivatedUser(app.getMediaSearchHandler))))
+	mux.Handle("GET /api/v1/discovery/rating-candidates",
+		app.authenticate(http.HandlerFunc(app.requireActivatedUser(app.ListRandomMedia))))
 
 	mux.Handle("PUT /api/v1/ratings",
 		app.authenticate(http.HandlerFunc(app.requireActivatedUser(app.upsertRatingHandler))))

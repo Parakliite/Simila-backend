@@ -25,6 +25,9 @@ type UnifiedTMDBResponse struct {
 	OriginalName string  `json:"original_name"`
 	FirstAirDate string  `json:"first_air_date"`
 	EpisodeRun   []int32 `json:"episode_run_time"`
+	LastEpisode  *struct {
+		Runtime int32 `json:"runtime"`
+	} `json:"last_episode_to_air"`
 	// Shared fields
 	Overview     string `json:"overview"`
 	PosterPath   string `json:"poster_path"`
@@ -168,6 +171,12 @@ func (app *application) fetchAndSaveMedia(ctx context.Context, tmdbID int32, med
 		newMedia.ReleaseDate, _ = time.Parse("2006-01-02", r.FirstAirDate)
 		if len(r.EpisodeRun) > 0 {
 			newMedia.Runtime = data.Runtime(r.EpisodeRun[0])
+		}
+		if newMedia.Runtime == 0 && r.LastEpisode != nil {
+			newMedia.Runtime = data.Runtime(r.LastEpisode.Runtime)
+		}
+		if newMedia.Runtime == 0 {
+			newMedia.Runtime = data.Runtime(1)
 		}
 	}
 

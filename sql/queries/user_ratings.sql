@@ -95,3 +95,21 @@ WHERE media_id = $1
 ORDER BY ur.created_at DESC, ur.user_id DESC
 LIMIT $2;
 
+-- name: GetRandomMedia :many
+SELECT
+  m.id,
+  m.title,
+  m.original_title,
+  m.poster_path,
+  m.tmdb_id,
+  m.backdrop_path,
+  m.overview,
+  m.release_date,
+  m.runtime,
+  m.media_type
+FROM media AS m
+LEFT JOIN user_ratings as ur
+ON m.id = ur.media_id AND ur.user_id = $1
+WHERE ur.media_id IS NULL
+ORDER BY RANDOM()
+LIMIT $2;

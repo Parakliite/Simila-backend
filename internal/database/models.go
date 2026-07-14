@@ -141,6 +141,12 @@ func (ns NullStatusType) Value() (driver.Value, error) {
 	return string(ns.StatusType), nil
 }
 
+type DiscoveryHistory struct {
+	UserID         uuid.UUID
+	MediaID        uuid.UUID
+	NextEligibleAt time.Time
+}
+
 type Genre struct {
 	ID   uuid.UUID
 	Name string

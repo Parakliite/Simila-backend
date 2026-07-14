@@ -97,7 +97,7 @@ func (r RatingModel) GetUsersRatings(
 		Limit:           limit,
 	})
 	if err != nil {
-		return []UserRating{}, fmt.Errorf("get user ratings: %w", err)
+		return nil, fmt.Errorf("get user ratings: %w", err)
 	}
 
 	var userRatings []UserRating
@@ -164,7 +164,7 @@ func (r RatingModel) GetAllRatingsForSingleMedia(
 		},
 	)
 	if err != nil {
-		return []UserRating{}, fmt.Errorf("ratings for single media: %w", err)
+		return nil, fmt.Errorf("ratings for single media: %w", err)
 	}
 
 	var usersRating []UserRating
@@ -176,6 +176,40 @@ func (r RatingModel) GetAllRatingsForSingleMedia(
 	}
 
 	return usersRating, nil
+}
+
+func (r RatingModel) GetRandomMedia(
+	ctx context.Context,
+	userID uuid.UUID,
+	limit int32,
+) ([]Media, error) {
+	randomMedia, err := r.q.GetRandomMedia(ctx, database.GetRandomMediaParams{
+		UserID: userID,
+		Limit:  limit,
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	var mediaList []Media
+
+	for _, m := range randomMedia {
+		mediaList = append(mediaList, Media{
+			ID:            m.ID,
+			TmdbID:        m.TmdbID,
+			Title:         m.Title,
+			OriginalTitle: m.OriginalTitle,
+			BackdropPath:  m.BackdropPath,
+			PosterPath:    m.PosterPath,
+			Overview:      m.Overview,
+			ReleaseDate:   m.ReleaseDate,
+			Runtime:       Runtime(m.Runtime),
+			MediaType:     m.MediaType,
+			Genre:         []Genre{},
+		})
+	}
+
+	return mediaList, nil
 }
 
 func toUserRating(row database.GetUsersRatingsRow) UserRating {

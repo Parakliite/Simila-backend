@@ -57,3 +57,5 @@ INSERT INTO media_genres (
 SELECT id
 FROM media;
 
+
+

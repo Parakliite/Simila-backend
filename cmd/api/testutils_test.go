@@ -154,7 +154,8 @@ func (m *mockTokenModel) DeleteAllForUser(ctx context.Context, scope string, use
 // --- mock rating model ---
 
 type mockRatingModel struct {
-	ratings map[string]data.UserRating
+	ratings     map[string]data.UserRating
+	randomMedia []data.Media
 }
 
 func newMockRatingModel() *mockRatingModel {
@@ -248,6 +249,21 @@ func (m *mockRatingModel) GetAllRatingsForSingleMedia(ctx context.Context, creat
 		}
 		return result[i].Rating.CreatedAt.After(result[j].Rating.CreatedAt)
 	})
+
+	return result, nil
+}
+
+func (m *mockRatingModel) GetRandomMedia(ctx context.Context, userID uuid.UUID, limit int32) ([]data.Media, error) {
+	var result []data.Media
+	for _, media := range m.randomMedia {
+		if _, ok := m.ratings[ratingKey(userID, media.ID)]; ok {
+			continue
+		}
+		result = append(result, media)
+		if len(result) == int(limit) {
+			break
+		}
+	}
 
 	return result, nil
 }
@@ -444,6 +460,36 @@ func (m *mockWatchlistModel) GetAllItemsInWatchlist(
 	return items, nil
 }
 
+// --- mock discovery model ---
+
+type mockDiscoveryModel struct {
+	history map[string]time.Time
+}
+
+func newMockDiscoveryModel() *mockDiscoveryModel {
+	return &mockDiscoveryModel{
+		history: make(map[string]time.Time),
+	}
+}
+
+func discoveryKey(userID, mediaID uuid.UUID) string {
+	return userID.String() + ":" + mediaID.String()
+}
+
+func (m *mockDiscoveryModel) GetDiscoveryHistoryExpiry(ctx context.Context, userID, mediaID uuid.UUID) (time.Time, error) {
+	expiry, ok := m.history[discoveryKey(userID, mediaID)]
+	if !ok {
+		return time.Time{}, data.ErrRecordNotFound
+	}
+
+	return expiry, nil
+}
+
+func (m *mockDiscoveryModel) SetDiscoveryHistoryExpiry(ctx context.Context, userID, mediaID uuid.UUID, eligibleAt time.Time) error {
+	m.history[discoveryKey(userID, mediaID)] = eligibleAt
+	return nil
+}
+
 // --- helpers ---
 
 func newTestApp(tmdbURL string) *application {
@@ -461,6 +507,7 @@ func newTestApp(tmdbURL string) *application {
 			Matches:   &mockMatchModel{},
 			Reactions: newMockReactionModel(),
 			Watchlist: newMockWatchlistModel(),
+			Discovery: newMockDiscoveryModel(),
 		},
 	}
 }

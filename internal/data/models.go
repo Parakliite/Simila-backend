@@ -36,6 +36,7 @@ type RatingQuerier interface {
 	) (UserRating, error)
 	GetAllRatingsForSingleMedia(ctx context.Context, createdAt time.Time, mediaID, userID uuid.UUID, limit int32,
 	) ([]UserRating, error)
+	GetRandomMedia(ctx context.Context, userID uuid.UUID, limit int32) ([]Media, error)
 	DeleteUserRating(ctx context.Context, userID, mediaID uuid.UUID) error
 }
 
@@ -72,7 +73,13 @@ type WatchlistQuerier interface {
 	) ([]UserWatchlistItem, error)
 }
 
+type DiscoveryQuerier interface {
+	GetDiscoveryHistoryExpiry(ctx context.Context, userID, mediaID uuid.UUID) (time.Time, error)
+	SetDiscoveryHistoryExpiry(ctx context.Context, userID, mediaID uuid.UUID, eligibleAt time.Time) error
+}
+
 type Models struct {
+	Helper    *database.Queries
 	Movies    MediaQuerier
 	Users     UserQuerier
 	Tokens    TokenQuerier
@@ -80,12 +87,14 @@ type Models struct {
 	Matches   MatchQuerier
 	Reactions ReactionQuerier
 	Watchlist WatchlistQuerier
+	Discovery DiscoveryQuerier
 }
 
 func NewModels(db *sql.DB) Models {
 	dbQueries := database.New(db)
 
 	return Models{
+		Helper: dbQueries,
 		Movies: MediaModel{
 			DB: db,
 			q:  dbQueries,
@@ -111,6 +120,10 @@ func NewModels(db *sql.DB) Models {
 			q:  dbQueries,
 		},
 		Watchlist: WatchlistModel{
+			DB: db,
+			q:  dbQueries,
+		},
+		Discovery: DiscoveryModel{
 			DB: db,
 			q:  dbQueries,
 		},
