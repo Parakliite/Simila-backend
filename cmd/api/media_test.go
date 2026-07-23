@@ -306,17 +306,17 @@ func TestGetMedia_TMDBDown(t *testing.T) {
 	}
 }
 
-// --- getMediaSearchHandler tests ---
+// --- searchHandler media result tests ---
 
 func TestSearchMedia_ReturnsFilteredResults(t *testing.T) {
 	tmdb := newTMDBServer()
 	defer tmdb.Close()
 	app := newTestApp(tmdb.URL)
 
-	req := httptest.NewRequest("GET", "/api/v1/media/search?query=fight", nil)
+	req := httptest.NewRequest("GET", "/api/v1/search?query=fight", nil)
 	rr := httptest.NewRecorder()
 
-	app.getMediaSearchHandler(rr, req)
+	app.searchHandler(rr, req)
 
 	if rr.Code != http.StatusOK {
 		t.Fatalf("expected status 200, got %d", rr.Code)
@@ -334,10 +334,10 @@ func TestSearchMedia_ReturnsFilteredResults(t *testing.T) {
 func TestSearchMedia_EmptyQuery(t *testing.T) {
 	app := newTestApp("")
 
-	req := httptest.NewRequest("GET", "/api/v1/media/search?query=", nil)
+	req := httptest.NewRequest("GET", "/api/v1/search?query=", nil)
 	rr := httptest.NewRecorder()
 
-	app.getMediaSearchHandler(rr, req)
+	app.searchHandler(rr, req)
 
 	if rr.Code != http.StatusBadRequest {
 		t.Fatalf("expected status 400, got %d", rr.Code)
@@ -347,10 +347,10 @@ func TestSearchMedia_EmptyQuery(t *testing.T) {
 func TestSearchMedia_MissingQuery(t *testing.T) {
 	app := newTestApp("")
 
-	req := httptest.NewRequest("GET", "/api/v1/media/search", nil)
+	req := httptest.NewRequest("GET", "/api/v1/search", nil)
 	rr := httptest.NewRecorder()
 
-	app.getMediaSearchHandler(rr, req)
+	app.searchHandler(rr, req)
 
 	if rr.Code != http.StatusBadRequest {
 		t.Fatalf("expected status 400, got %d", rr.Code)
@@ -364,10 +364,10 @@ func TestSearchMedia_TMDBDown(t *testing.T) {
 	defer srv.Close()
 	app := newTestApp(srv.URL)
 
-	req := httptest.NewRequest("GET", "/api/v1/media/search?query=test", nil)
+	req := httptest.NewRequest("GET", "/api/v1/search?query=test", nil)
 	rr := httptest.NewRecorder()
 
-	app.getMediaSearchHandler(rr, req)
+	app.searchHandler(rr, req)
 
 	if rr.Code != http.StatusInternalServerError {
 		t.Fatalf("expected status 500, got %d", rr.Code)
@@ -379,10 +379,10 @@ func TestSearchMedia_ResultsContainExpectedFields(t *testing.T) {
 	defer tmdb.Close()
 	app := newTestApp(tmdb.URL)
 
-	req := httptest.NewRequest("GET", "/api/v1/media/search?query=fight", nil)
+	req := httptest.NewRequest("GET", "/api/v1/search?query=fight", nil)
 	rr := httptest.NewRecorder()
 
-	app.getMediaSearchHandler(rr, req)
+	app.searchHandler(rr, req)
 
 	var resp map[string][]struct {
 		ID        int    `json:"id"`

@@ -24,8 +24,8 @@ func (app *application) routes() http.Handler {
 	mux.Handle("PATCH /api/v1/users/profile",
 		app.authenticate(http.HandlerFunc(app.requireActivatedUser(app.updateUserProfileHandler))))
 
-	mux.Handle("GET /api/v1/media/search",
-		app.authenticate(http.HandlerFunc(app.requireActivatedUser(app.getMediaSearchHandler))))
+	mux.Handle("GET /api/v1/search",
+		app.authenticate(http.HandlerFunc(app.requireActivatedUser(app.searchHandler))))
 	mux.Handle("GET /api/v1/discovery/rating-candidates",
 		app.authenticate(http.HandlerFunc(app.requireActivatedUser(app.ListRandomMedia))))
 
@@ -40,6 +40,9 @@ func (app *application) routes() http.Handler {
 	mux.Handle("GET /api/v1/media/{media_id}/ratings",
 		app.authenticate(http.HandlerFunc(app.requireActivatedUser(app.listRatingsForMedia))))
 
+	mux.Handle("GET /api/v1/matches",
+		app.authenticate(http.HandlerFunc(app.listMatchesHandler)))
+
 	mux.Handle("PUT /api/v1/reactions",
 		app.authenticate(http.HandlerFunc(app.requireActivatedUser(app.upsertReactionHandler))))
 	mux.Handle("DELETE /api/v1/reactions/{rating_user_id}/{media_id}",
@@ -48,6 +51,9 @@ func (app *application) routes() http.Handler {
 		app.authenticate(http.HandlerFunc(app.requireActivatedUser(app.listUserReactionsHandler))))
 	mux.Handle("GET /api/v1/ratings/{rating_user_id}/{media_id}/reactions/count",
 		app.authenticate(http.HandlerFunc(app.requireActivatedUser(app.getReactionCountForRatingHandler))))
+
+	mux.Handle("GET /api/v1/impact/{user_id}",
+		app.authenticate(http.HandlerFunc(app.requireActivatedUser(app.getImpact))))
 
 	mux.Handle("POST /api/v1/watchlist",
 		app.authenticate(http.HandlerFunc(app.requireActivatedUser(app.insertToWatchlistHandler))))

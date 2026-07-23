@@ -41,6 +41,18 @@ func TestUpsertReaction_ValidInput(t *testing.T) {
 	if reaction["reaction"] != "great_pick" {
 		t.Fatalf("expected reaction %q, got %v", "great_pick", reaction["reaction"])
 	}
+	if _, ok := reaction["reactor"].(map[string]any); !ok {
+		t.Fatalf("expected nested reactor object, got %T", reaction["reactor"])
+	}
+	if _, ok := reaction["rating_user"].(map[string]any); !ok {
+		t.Fatalf("expected nested rating_user object, got %T", reaction["rating_user"])
+	}
+	if _, ok := reaction["media"].(map[string]any); !ok {
+		t.Fatalf("expected nested media object, got %T", reaction["media"])
+	}
+	if _, ok := reaction["rating"].(map[string]any); !ok {
+		t.Fatalf("expected nested rating object, got %T", reaction["rating"])
+	}
 }
 
 func TestUpsertReaction_InvalidReaction(t *testing.T) {
@@ -126,6 +138,20 @@ func TestListUserReactions_ReturnsReactions(t *testing.T) {
 	reactions := resp["reactions"].([]any)
 	if len(reactions) != 2 {
 		t.Fatalf("expected 2 reactions, got %d", len(reactions))
+	}
+
+	reaction := reactions[0].(map[string]any)
+	if _, ok := reaction["reactor"].(map[string]any); !ok {
+		t.Fatalf("expected nested reactor object, got %T", reaction["reactor"])
+	}
+	if _, ok := reaction["rating_user"].(map[string]any); !ok {
+		t.Fatalf("expected nested rating_user object, got %T", reaction["rating_user"])
+	}
+	if _, ok := reaction["media"].(map[string]any); !ok {
+		t.Fatalf("expected nested media object, got %T", reaction["media"])
+	}
+	if _, ok := reaction["rating"].(map[string]any); !ok {
+		t.Fatalf("expected nested rating object, got %T", reaction["rating"])
 	}
 }
 

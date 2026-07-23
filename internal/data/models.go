@@ -20,6 +20,7 @@ type UserQuerier interface {
 	GetByID(ctx context.Context, id uuid.UUID) (*User, error)
 	UpdateUser(ctx context.Context, user *User) error
 	GetForToken(ctx context.Context, tokenScope, tokenPlaintext string) (*User, error)
+	SearchUsers(ctx context.Context, query string, limit int32) ([]User, error)
 }
 
 type TokenQuerier interface {
@@ -41,11 +42,13 @@ type RatingQuerier interface {
 }
 
 type MatchQuerier interface {
-	GetSimilarities(targetUserID uuid.UUID, ratings []Rating, indexMap map[uuid.UUID]int) (map[uuid.UUID]float64, error)
+	GetSimilarities(ctx context.Context, targetUserID uuid.UUID, ratings []Rating, indexMap map[uuid.UUID]int) (map[uuid.UUID]float64, error)
+	MapMediaToIndex() (map[uuid.UUID]int, error)
+	GetAllUserRatingsForMatches(ctx context.Context, userID uuid.UUID) ([]Rating, error)
 }
 
 type ReactionQuerier interface {
-	UpsertReaction(ctx context.Context, reaction Reaction) (Reaction, error)
+	UpsertReaction(ctx context.Context, reaction Reaction) (ReactionWithDetails, error)
 	DeleteReaction(ctx context.Context, reactorUserID, ratingUserID, mediaID uuid.UUID) error
 	GetReactionCountForRating(ctx context.Context, ratingUserID, mediaID uuid.UUID) (int64, error)
 	GetUserReactionsForTargetUser(
@@ -54,7 +57,7 @@ type ReactionQuerier interface {
 		cursorCreatedAt time.Time,
 		cursorReactorUserID uuid.UUID,
 		limit int32,
-	) ([]Reaction, error)
+	) ([]ReactionWithDetails, error)
 }
 
 type WatchlistQuerier interface {
@@ -79,7 +82,6 @@ type DiscoveryQuerier interface {
 }
 
 type Models struct {
-	Helper    *database.Queries
 	Movies    MediaQuerier
 	Users     UserQuerier
 	Tokens    TokenQuerier
@@ -94,7 +96,6 @@ func NewModels(db *sql.DB) Models {
 	dbQueries := database.New(db)
 
 	return Models{
-		Helper: dbQueries,
 		Movies: MediaModel{
 			DB: db,
 			q:  dbQueries,

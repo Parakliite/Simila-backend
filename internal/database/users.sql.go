@@ -97,7 +97,7 @@ func (q *Queries) GetAllUsers(ctx context.Context) ([]uuid.UUID, error) {
 }
 
 const getUserByEmail = `-- name: GetUserByEmail :one
-SELECT id, name, email, created_at, updated_at, profile_picture_url, password_hash, about, activated, version
+SELECT id, name, email, password_hash, created_at, updated_at, profile_picture_url, about, activated, version
 FROM users
 WHERE email = $1
 `
@@ -106,10 +106,10 @@ type GetUserByEmailRow struct {
 	ID                uuid.UUID
 	Name              string
 	Email             string
+	PasswordHash      []byte
 	CreatedAt         time.Time
 	UpdatedAt         time.Time
 	ProfilePictureUrl sql.NullString
-	PasswordHash      []byte
 	About             sql.NullString
 	Activated         bool
 	Version           int32
@@ -122,10 +122,10 @@ func (q *Queries) GetUserByEmail(ctx context.Context, email string) (GetUserByEm
 		&i.ID,
 		&i.Name,
 		&i.Email,
+		&i.PasswordHash,
 		&i.CreatedAt,
 		&i.UpdatedAt,
 		&i.ProfilePictureUrl,
-		&i.PasswordHash,
 		&i.About,
 		&i.Activated,
 		&i.Version,
@@ -134,7 +134,7 @@ func (q *Queries) GetUserByEmail(ctx context.Context, email string) (GetUserByEm
 }
 
 const getUserByID = `-- name: GetUserByID :one
-SELECT id, name, email, created_at, updated_at, profile_picture_url, password_hash, about, activated, version
+SELECT id, name, email, password_hash, created_at, updated_at, profile_picture_url, about, activated, version
 FROM users
 WHERE id = $1
 `
@@ -143,10 +143,10 @@ type GetUserByIDRow struct {
 	ID                uuid.UUID
 	Name              string
 	Email             string
+	PasswordHash      []byte
 	CreatedAt         time.Time
 	UpdatedAt         time.Time
 	ProfilePictureUrl sql.NullString
-	PasswordHash      []byte
 	About             sql.NullString
 	Activated         bool
 	Version           int32
@@ -159,10 +159,10 @@ func (q *Queries) GetUserByID(ctx context.Context, id uuid.UUID) (GetUserByIDRow
 		&i.ID,
 		&i.Name,
 		&i.Email,
+		&i.PasswordHash,
 		&i.CreatedAt,
 		&i.UpdatedAt,
 		&i.ProfilePictureUrl,
-		&i.PasswordHash,
 		&i.About,
 		&i.Activated,
 		&i.Version,

@@ -11,8 +11,6 @@ import (
 	"github.com/google/uuid"
 )
 
-var maxCursorUUID = uuid.MustParse("ffffffff-ffff-ffff-ffff-ffffffffffff")
-
 func (app *application) upsertReactionHandler(w http.ResponseWriter, r *http.Request) {
 	user := app.contextGetUser(r)
 
@@ -131,7 +129,7 @@ func (app *application) listUserReactionsHandler(w http.ResponseWriter, r *http.
 	if len(reactions) > limit {
 		reactions = reactions[:limit]
 		last := reactions[len(reactions)-1]
-		c := app.encodeCursor(last.ReactorUserID, last.CreatedAt)
+		c := app.encodeCursor(last.Reactor.ID, last.CreatedAt)
 		nextCursor = &c
 	}
 

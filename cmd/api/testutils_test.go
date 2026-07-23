@@ -6,6 +6,7 @@ import (
 	"io"
 	"net/http"
 	"sort"
+	"strings"
 	"time"
 
 	"github.com/deltron-fr/filmbox/server/internal/data"
@@ -110,6 +111,37 @@ func (m *mockUserModel) GetForToken(ctx context.Context, tokenScope, tokenPlaint
 		return nil, data.ErrRecordNotFound
 	}
 	return user, nil
+}
+
+func (m *mockUserModel) SearchUsers(ctx context.Context, query string, limit int32) ([]data.User, error) {
+	if err := ctx.Err(); err != nil {
+		return nil, err
+	}
+	if query == "" {
+		return nil, fmt.Errorf("empty query")
+	}
+	if limit <= 0 {
+		return []data.User{}, nil
+	}
+
+	query = strings.ToLower(query)
+	users := make([]data.User, 0, len(m.users))
+	for _, user := range m.users {
+		if strings.Contains(strings.ToLower(user.Name), query) {
+			users = append(users, *user)
+		}
+	}
+	sort.Slice(users, func(i, j int) bool {
+		if users[i].Name == users[j].Name {
+			return users[i].ID.String() < users[j].ID.String()
+		}
+		return users[i].Name < users[j].Name
+	})
+	if int32(len(users)) > limit {
+		users = users[:limit]
+	}
+
+	return users, nil
 }
 
 // --- mock token model ---
@@ -272,8 +304,16 @@ func (m *mockRatingModel) GetRandomMedia(ctx context.Context, userID uuid.UUID, 
 
 type mockMatchModel struct{}
 
-func (m *mockMatchModel) GetSimilarities(targetUserID uuid.UUID, ratings []data.Rating, indexMap map[uuid.UUID]int) (map[uuid.UUID]float64, error) {
+func (m *mockMatchModel) GetSimilarities(ctx context.Context, targetUserID uuid.UUID, ratings []data.Rating, indexMap map[uuid.UUID]int) (map[uuid.UUID]float64, error) {
 	return make(map[uuid.UUID]float64), nil
+}
+
+func (m *mockMatchModel) MapMediaToIndex() (map[uuid.UUID]int, error) {
+	return make(map[uuid.UUID]int), nil
+}
+
+func (m *mockMatchModel) GetAllUserRatingsForMatches(ctx context.Context, userID uuid.UUID) ([]data.Rating, error) {
+	return []data.Rating{}, nil
 }
 
 // --- mock reaction model ---
@@ -292,7 +332,26 @@ func reactionKey(reactorUserID, ratingUserID, mediaID uuid.UUID) string {
 	return reactorUserID.String() + ":" + ratingUserID.String() + ":" + mediaID.String()
 }
 
-func (m *mockReactionModel) UpsertReaction(ctx context.Context, reaction data.Reaction) (data.Reaction, error) {
+func mockReactionWithDetails(reaction data.Reaction) data.ReactionWithDetails {
+	return data.ReactionWithDetails{
+		ID:        reaction.ID,
+		Reaction:  reaction.Reaction,
+		CreatedAt: reaction.CreatedAt,
+		UpdatedAt: reaction.UpdatedAt,
+		Reactor: data.ReactionUser{
+			ID: reaction.ReactorUserID,
+		},
+		RatingUser: data.ReactionUser{
+			ID: reaction.RatingUserID,
+		},
+		Media: data.ReactionMedia{
+			ID: reaction.MediaID,
+		},
+		Rating: data.ReactionRating{},
+	}
+}
+
+func (m *mockReactionModel) UpsertReaction(ctx context.Context, reaction data.Reaction) (data.ReactionWithDetails, error) {
 	now := time.Now()
 	key := reactionKey(reaction.ReactorUserID, reaction.RatingUserID, reaction.MediaID)
 	if existing, ok := m.reactions[key]; ok {
@@ -304,7 +363,7 @@ func (m *mockReactionModel) UpsertReaction(ctx context.Context, reaction data.Re
 	}
 	reaction.UpdatedAt = now
 	m.reactions[key] = reaction
-	return reaction, nil
+	return mockReactionWithDetails(reaction), nil
 }
 
 func (m *mockReactionModel) DeleteReaction(ctx context.Context, reactorUserID, ratingUserID, mediaID uuid.UUID) error {
@@ -332,7 +391,7 @@ func (m *mockReactionModel) GetUserReactionsForTargetUser(
 	cursorCreatedAt time.Time,
 	cursorReactorUserID uuid.UUID,
 	limit int32,
-) ([]data.Reaction, error) {
+) ([]data.ReactionWithDetails, error) {
 	var reactions []data.Reaction
 	for _, reaction := range m.reactions {
 		if reaction.RatingUserID != ratingUserID {
@@ -358,7 +417,12 @@ func (m *mockReactionModel) GetUserReactionsForTargetUser(
 		reactions = reactions[:limit]
 	}
 
-	return reactions, nil
+	detailedReactions := make([]data.ReactionWithDetails, 0, len(reactions))
+	for _, reaction := range reactions {
+		detailedReactions = append(detailedReactions, mockReactionWithDetails(reaction))
+	}
+
+	return detailedReactions, nil
 }
 
 // --- mock watchlist model ---

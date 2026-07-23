@@ -11,12 +11,12 @@ INSERT INTO users (
 RETURNING id, name, email, created_at, updated_at, profile_picture_url, about, activated, version;
 
 -- name: GetUserByEmail :one
-SELECT id, name, email, created_at, updated_at, profile_picture_url, password_hash, about, activated, version
+SELECT id, name, email, password_hash, created_at, updated_at, profile_picture_url, about, activated, version
 FROM users
 WHERE email = $1;
 
 -- name: GetUserByID :one
-SELECT id, name, email, created_at, updated_at, profile_picture_url, password_hash, about, activated, version
+SELECT id, name, email, password_hash, created_at, updated_at, profile_picture_url, about, activated, version
 FROM users
 WHERE id = $1;
 

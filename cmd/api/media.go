@@ -6,7 +6,6 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
-	"net/url"
 	"time"
 
 	"github.com/deltron-fr/filmbox/server/internal/data"
@@ -35,6 +34,19 @@ type UnifiedTMDBResponse struct {
 	Genres       []struct {
 		Name string `json:"name"`
 	} `json:"genres"`
+}
+
+type TMDBSearchResult struct {
+	BackdropPath  string `json:"backdrop_path"`
+	ID            int    `json:"id"`
+	Title         string `json:"title,omitempty"`
+	OriginalTitle string `json:"original_title,omitempty"`
+	PosterPath    string `json:"poster_path"`
+	MediaType     string `json:"media_type"`
+	ReleaseDate   string `json:"release_date,omitempty"`
+	Name          string `json:"name,omitempty"`
+	OriginalName  string `json:"original_name,omitempty"`
+	FirstAirDate  string `json:"first_air_date,omitempty"`
 }
 
 // TODO: change this to use an anonymous/scoped struct instead
@@ -71,61 +83,6 @@ func (app *application) getMediaHandler(w http.ResponseWriter, r *http.Request) 
 	}
 
 	app.writeJSON(w, http.StatusOK, envelope{"media": media}, nil)
-}
-
-func (app *application) getMediaSearchHandler(w http.ResponseWriter, r *http.Request) {
-	query := r.URL.Query().Get("query")
-	if query == "" {
-		app.badRequestResponse(w, r, errors.New("query parameter is required"))
-		return
-	}
-
-	url := fmt.Sprintf("%s/3/search/multi?query=%s", app.config.tmdbBaseURL, url.QueryEscape(query))
-	req, _ := http.NewRequest("GET", url, nil)
-	req.Header.Set("Authorization", "Bearer "+app.config.tmdbToken)
-
-	client := &http.Client{Timeout: 5 * time.Second}
-	resp, err := client.Do(req)
-	if err != nil || resp.StatusCode != 200 {
-		app.serverErrorResponse(w, r, errors.New("failed to search TMDB"))
-		return
-	}
-	defer resp.Body.Close()
-
-	type TMDBSearchResult struct {
-		BackdropPath  string `json:"backdrop_path"`
-		ID            int    `json:"id"`
-		Title         string `json:"title,omitempty"`
-		OriginalTitle string `json:"original_title,omitempty"`
-		PosterPath    string `json:"poster_path"`
-		MediaType     string `json:"media_type"`
-		ReleaseDate   string `json:"release_date,omitempty"`
-		Name          string `json:"name,omitempty"`
-		OriginalName  string `json:"original_name,omitempty"`
-		FirstAirDate  string `json:"first_air_date,omitempty"`
-	}
-
-	var searchResults struct {
-		Results []TMDBSearchResult `json:"results"`
-	}
-
-	if err := json.NewDecoder(resp.Body).Decode(&searchResults); err != nil {
-		app.serverErrorResponse(w, r, err)
-		return
-	}
-
-	results := make([]TMDBSearchResult, 0, 20)
-	for _, result := range searchResults.Results {
-		if result.MediaType == "movie" || result.MediaType == "tv" {
-			results = append(results, result)
-		}
-	}
-
-	err = app.writeJSON(w, http.StatusOK, envelope{"media_results": results}, nil)
-	if err != nil {
-		app.serverErrorResponse(w, r, err)
-		return
-	}
 }
 
 func (app *application) fetchAndSaveMedia(ctx context.Context, tmdbID int32, mediaType string) (*data.Media, error) {

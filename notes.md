@@ -17,7 +17,7 @@ Author: deltron-fr
 6. This is not really important right now but change the logging strategy to slog.
 
 7. There should be a dedicated endpoint that calls random movies/shows(returns about 5) but shows only 1 to the user for them to 
-rate - something like tiktok videos. This will be used to build the users taste over time 
+rate - something like tiktok videos. This will be used to build the users taste over time - `COMPLETED`
 
 
 ### Additional missing / incorrect items found while comparing against the UI
@@ -101,6 +101,14 @@ Useful product feature with a fairly clear endpoint shape. Medium effort, but mu
 
 7. `#3` Wire matches into an endpoint or scheduled job.
 The matching logic already exists, so exposing/triggering it is likely easier than redesigning the algorithm itself.
+
+
+  - background recalculation job
+  - user_matches read endpoint
+  - match response with user profile + score + shared count
+  - recommendation generation from matched users’ highly rated unseen media
+  - probably some freshness/recompute strategy
+  - maybe thresholds, exclusions, pagination, and explanation metadata
 
 8. `#12` Finish the Impact feature backend.
 Important for the UI, but this likely expands the reaction model and adds aggregation work, so it is less contained.

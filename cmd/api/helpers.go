@@ -17,6 +17,8 @@ import (
 
 type envelope map[string]any
 
+var maxCursorUUID = uuid.MustParse("ffffffff-ffff-ffff-ffff-ffffffffffff")
+
 func (app *application) writeJSON(
 	w http.ResponseWriter,
 	statusCode int,

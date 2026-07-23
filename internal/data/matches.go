@@ -4,7 +4,6 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
-	"time"
 
 	"github.com/deltron-fr/filmbox/server/internal/database"
 	"github.com/google/uuid"
@@ -16,7 +15,7 @@ type MatchModel struct {
 	q  *database.Queries
 }
 
-func (m MatchModel) mapMediaToIndex() (map[uuid.UUID]int, error) {
+func (m MatchModel) MapMediaToIndex() (map[uuid.UUID]int, error) {
 	allIds, err := m.q.GetAllMedia(context.Background())
 	if err != nil {
 		return nil, fmt.Errorf("could not get all media: %w", err)
@@ -54,13 +53,11 @@ func allUsersRatings(ratings []Rating, indexMap map[uuid.UUID]int, size int) []f
 }
 
 func (m MatchModel) GetSimilarities(
+	ctx context.Context,
 	targetUserID uuid.UUID,
 	ratings []Rating,
 	indexMap map[uuid.UUID]int,
 ) (map[uuid.UUID]float64, error) {
-	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-	defer cancel()
-
 	targetRatingsVec := allUsersRatings(ratings, indexMap, len(indexMap))
 
 	similarities := make(map[uuid.UUID]float64)
@@ -71,6 +68,10 @@ func (m MatchModel) GetSimilarities(
 	}
 
 	for _, user := range allUsers {
+		if user == targetUserID {
+			continue
+		}
+
 		otherUserRatings, err := m.q.GetAllUserRatings(ctx, user)
 		if err != nil {
 			return nil, fmt.Errorf("could not get all user ratings: %w", err)
@@ -109,6 +110,21 @@ func (m MatchModel) GetSimilarities(
 	}
 
 	return similarities, nil
+}
+
+func (m MatchModel) GetAllUserRatingsForMatches(ctx context.Context, userID uuid.UUID) ([]Rating, error) {
+	rows, err := m.q.GetAllUserRatings(ctx, userID)
+	if err != nil {
+		return nil, err
+	}
+
+	var ratings []Rating
+
+	for _, row := range rows {
+		ratings = append(ratings, toRating(row))
+	}
+
+	return ratings, nil
 }
 
 func toRating(row database.GetAllUserRatingsRow) Rating {
