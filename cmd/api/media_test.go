@@ -7,7 +7,7 @@ import (
 	"net/http/httptest"
 	"testing"
 
-	"github.com/deltron-fr/filmbox/server/internal/data"
+	"github.com/parakliite/simila/internal/data"
 )
 
 func newTMDBServer() *httptest.Server {

@@ -9,8 +9,8 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/deltron-fr/filmbox/server/internal/data"
 	"github.com/google/uuid"
+	"github.com/parakliite/simila/internal/data"
 )
 
 func assertFloatRatingValue(t *testing.T, got any, want float64) {

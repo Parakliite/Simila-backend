@@ -11,11 +11,11 @@ import (
 	"sync"
 	"time"
 
-	"github.com/deltron-fr/filmbox/server/internal/data"
-	"github.com/deltron-fr/filmbox/server/internal/jsonlog"
-	"github.com/deltron-fr/filmbox/server/internal/mailer"
 	"github.com/joho/godotenv"
 	_ "github.com/lib/pq"
+	"github.com/parakliite/simila/internal/data"
+	"github.com/parakliite/simila/internal/jsonlog"
+	"github.com/parakliite/simila/internal/mailer"
 )
 
 var version = "1.0.0"
@@ -74,7 +74,7 @@ func main() {
 	cfg.smtp.port, _ = strconv.Atoi(smtpPort)
 	cfg.smtp.username = os.Getenv("SMTP_USERNAME")
 	cfg.smtp.password = os.Getenv("SMTP_PASSWORD")
-	cfg.smtp.sender = "Cinefilm <co-reply@cinefilm.net>"
+	cfg.smtp.sender = "Simila <co-reply@cinefilm.net>"
 
 	cfg.cors.trustedOrigins = strings.Fields(os.Getenv("CORS_ALLOWED_ORIGINS"))
 

@@ -5,7 +5,7 @@ import (
 	"database/sql"
 	"fmt"
 
-	"github.com/deltron-fr/filmbox/server/internal/database"
+	"github.com/parakliite/simila/internal/database"
 )
 
 func (m UserModel) SearchUsers(ctx context.Context, query string, limit int32) ([]User, error) {
@@ -34,7 +34,7 @@ func (m UserModel) SearchUsers(ctx context.Context, query string, limit int32) (
 		users = append(users, User{
 			ID:                row.ID,
 			Name:              row.Name,
-			Email: row.Email,
+			Email:             row.Email,
 			CreatedAt:         row.CreatedAt,
 			UpdatedAt:         row.UpdatedAt,
 			ProfilePictureURL: row.ProfilePictureUrl.String,

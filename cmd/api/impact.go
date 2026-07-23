@@ -5,8 +5,8 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/deltron-fr/filmbox/server/internal/data"
 	"github.com/google/uuid"
+	"github.com/parakliite/simila/internal/data"
 )
 
 func (app *application) getImpact(w http.ResponseWriter, req *http.Request) {

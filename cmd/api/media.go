@@ -8,7 +8,7 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/deltron-fr/filmbox/server/internal/data"
+	"github.com/parakliite/simila/internal/data"
 )
 
 // This is the response from tmdb and not the application itself

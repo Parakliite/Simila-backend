@@ -9,7 +9,7 @@ import (
 	"net/url"
 	"time"
 
-	"github.com/deltron-fr/filmbox/server/internal/data"
+	"github.com/parakliite/simila/internal/data"
 	"golang.org/x/sync/errgroup"
 )
 

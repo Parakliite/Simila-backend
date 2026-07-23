@@ -4,7 +4,7 @@ import (
 	"context"
 	"net/http"
 
-	"github.com/deltron-fr/filmbox/server/internal/data"
+	"github.com/parakliite/simila/internal/data"
 )
 
 type contextKey string

@@ -5,8 +5,8 @@ import (
 	"database/sql"
 	"fmt"
 
-	"github.com/deltron-fr/filmbox/server/internal/database"
 	"github.com/google/uuid"
+	"github.com/parakliite/simila/internal/database"
 	"gonum.org/v1/gonum/mat"
 )
 

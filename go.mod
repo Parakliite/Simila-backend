@@ -1,4 +1,4 @@
-module github.com/deltron-fr/filmbox/server
+module github.com/parakliite/simila
 
 go 1.25.0
 

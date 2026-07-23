@@ -8,8 +8,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/deltron-fr/filmbox/server/internal/data"
 	"github.com/google/uuid"
+	"github.com/parakliite/simila/internal/data"
 )
 
 func newDiscoveryMedia(title string) data.Media {

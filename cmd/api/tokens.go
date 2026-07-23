@@ -5,8 +5,8 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/deltron-fr/filmbox/server/internal/data"
-	"github.com/deltron-fr/filmbox/server/internal/validator"
+	"github.com/parakliite/simila/internal/data"
+	"github.com/parakliite/simila/internal/validator"
 )
 
 func (app *application) createAuthenticationTokenHandler(w http.ResponseWriter, r *http.Request) {

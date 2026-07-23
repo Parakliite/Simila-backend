@@ -9,9 +9,9 @@ import (
 	"strings"
 	"time"
 
-	"github.com/deltron-fr/filmbox/server/internal/data"
-	"github.com/deltron-fr/filmbox/server/internal/validator"
 	"github.com/felixge/httpsnoop"
+	"github.com/parakliite/simila/internal/data"
+	"github.com/parakliite/simila/internal/validator"
 )
 
 func (app *application) recoverPanic(next http.Handler) http.Handler {

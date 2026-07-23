@@ -8,9 +8,9 @@ import (
 	"encoding/base32"
 	"time"
 
-	"github.com/deltron-fr/filmbox/server/internal/database"
-	"github.com/deltron-fr/filmbox/server/internal/validator"
 	"github.com/google/uuid"
+	"github.com/parakliite/simila/internal/database"
+	"github.com/parakliite/simila/internal/validator"
 )
 
 const (

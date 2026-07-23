@@ -6,10 +6,10 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/deltron-fr/filmbox/server/internal/data"
-	"github.com/deltron-fr/filmbox/server/internal/database"
-	"github.com/deltron-fr/filmbox/server/internal/validator"
 	"github.com/google/uuid"
+	"github.com/parakliite/simila/internal/data"
+	"github.com/parakliite/simila/internal/database"
+	"github.com/parakliite/simila/internal/validator"
 )
 
 func (app *application) insertToWatchlistHandler(w http.ResponseWriter, r *http.Request) {

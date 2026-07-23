@@ -5,8 +5,8 @@ import (
 	"database/sql"
 	"time"
 
-	"github.com/deltron-fr/filmbox/server/internal/database"
 	"github.com/google/uuid"
+	"github.com/parakliite/simila/internal/database"
 )
 
 type MediaQuerier interface {

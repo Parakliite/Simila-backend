@@ -6,16 +6,16 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/deltron-fr/filmbox/server/internal/data"
-	"github.com/deltron-fr/filmbox/server/internal/validator"
 	"github.com/google/uuid"
+	"github.com/parakliite/simila/internal/data"
+	"github.com/parakliite/simila/internal/validator"
 )
 
 func (app *application) upsertRatingHandler(w http.ResponseWriter, r *http.Request) {
 	user := app.contextGetUser(r)
 	var input struct {
 		MediaID     uuid.UUID  `json:"media_id"`
-		RatingValue float64      `json:"rating_value"`
+		RatingValue float64    `json:"rating_value"`
 		WatchedDate *time.Time `json:"watched_date,omitempty"`
 	}
 
