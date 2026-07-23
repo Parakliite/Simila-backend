@@ -1,4 +1,4 @@
-![ci status](https://github.com/deltron-fr/Parakliite/Simila-backend/actions/workflows/ci.yaml/badge.svg)
+[![ci](https://github.com/Parakliite/Simila-backend/actions/workflows/ci.yaml/badge.svg)](https://github.com/Parakliite/Simila-backend/actions/workflows/ci.yaml)
 
 # Simila API
 

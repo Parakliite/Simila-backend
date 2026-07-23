@@ -151,17 +151,6 @@ func (app *application) readInt(qs url.Values, key string, defaultValue int) int
 	return i
 }
 
-func (app *application) convertStringToDate(date string) (time.Time, error) {
-	layout := "2006-01-02"
-
-	t, err := time.Parse(layout, date)
-	if err != nil {
-		return time.Time{}, err
-	}
-
-	return t, nil
-}
-
 func (app *application) decodeCursor(cursorStr string) (uuid.UUID, time.Time, error) {
 	b, err := base64.URLEncoding.DecodeString(cursorStr)
 	if err != nil {

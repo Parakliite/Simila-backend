@@ -188,6 +188,10 @@ func (app *application) listRatingsForMedia(w http.ResponseWriter, r *http.Reque
 		cursorUserID,
 		int32(limit),
 	)
+	if err != nil {
+		app.serverErrorResponse(w, r, err)
+		return
+	}
 
 	var nextCursor *string
 	if len(ratings) > limit {
