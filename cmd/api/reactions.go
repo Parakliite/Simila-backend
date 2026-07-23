@@ -133,7 +133,7 @@ func (app *application) listUserReactionsHandler(w http.ResponseWriter, r *http.
 		nextCursor = &c
 	}
 
-	err = app.writeJSON(w, http.StatusInternalServerError, envelope{
+	err = app.writeJSON(w, http.StatusOK, envelope{
 		"reactions":   reactions,
 		"next_cursor": nextCursor,
 	}, nil)

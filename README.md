@@ -1,3 +1,5 @@
+![ci status](https://github.com/deltron-fr/Parakliite/Simila-backend/actions/workflows/ci.yaml/badge.svg)
+
 # Simila API
 
 Simila is a Go API for rating films and shows, discovering media, reacting to ratings, and finding user matches.
