@@ -118,7 +118,7 @@ func (app *application) listUserReactionsHandler(w http.ResponseWriter, r *http.
 		ratingUserID,
 		cursorCreatedAt,
 		cursorReactorUserID,
-		int32(limit+1),
+		limit+1,
 	)
 	if err != nil {
 		app.serverErrorResponse(w, r, err)
@@ -126,7 +126,7 @@ func (app *application) listUserReactionsHandler(w http.ResponseWriter, r *http.
 	}
 
 	var nextCursor *string
-	if len(reactions) > limit {
+	if len(reactions) > int(limit) {
 		reactions = reactions[:limit]
 		last := reactions[len(reactions)-1]
 		c := app.encodeCursor(last.Reactor.ID, last.CreatedAt)

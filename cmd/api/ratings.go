@@ -101,7 +101,7 @@ func (app *application) listRatingsHandler(w http.ResponseWriter, r *http.Reques
 	ratings, err := app.models.Ratings.GetUsersRatings(
 		r.Context(),
 		cursorCreatedAt,
-		int32(limit),
+		limit+1,
 		user.ID,
 		cursorMediaID,
 	)
@@ -111,7 +111,7 @@ func (app *application) listRatingsHandler(w http.ResponseWriter, r *http.Reques
 	}
 
 	var nextCursor *string
-	if len(ratings) > limit {
+	if len(ratings) > int(limit) {
 		ratings = ratings[:limit]
 		last := ratings[limit-1]
 		c := app.encodeCursor(last.Media.ID, last.Rating.CreatedAt)
@@ -186,7 +186,7 @@ func (app *application) listRatingsForMedia(w http.ResponseWriter, r *http.Reque
 		cursorCreatedAt,
 		mediaID,
 		cursorUserID,
-		int32(limit),
+		limit+1,
 	)
 	if err != nil {
 		app.serverErrorResponse(w, r, err)
@@ -194,7 +194,7 @@ func (app *application) listRatingsForMedia(w http.ResponseWriter, r *http.Reque
 	}
 
 	var nextCursor *string
-	if len(ratings) > limit {
+	if len(ratings) > int(limit) {
 		ratings = ratings[:limit]
 		last := ratings[limit-1]
 		c := app.encodeCursor(last.Rating.UserID, last.Rating.CreatedAt)

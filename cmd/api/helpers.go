@@ -36,9 +36,9 @@ func (app *application) writeJSON(
 
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(statusCode)
-	w.Write(js)
 
-	return nil
+	_, err = w.Write(js)
+	return err
 }
 
 func (app *application) readIDParam(r *http.Request) (int32, error) {
@@ -139,16 +139,18 @@ func (app *application) readString(qs url.Values, key, defaultValue string) stri
 	return s
 }
 
-func (app *application) readInt(qs url.Values, key string, defaultValue int) int {
+func (app *application) readInt(qs url.Values, key string, defaultValue int32) int32 {
 	s := qs.Get(key)
 	if s == "" {
 		return defaultValue
 	}
-	i, err := strconv.Atoi(s)
+
+	i, err := strconv.ParseInt(s, 10, 32)
 	if err != nil {
 		return defaultValue
 	}
-	return i
+
+	return int32(i)
 }
 
 func (app *application) decodeCursor(cursorStr string) (uuid.UUID, time.Time, error) {

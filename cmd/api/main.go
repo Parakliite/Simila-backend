@@ -56,7 +56,7 @@ type application struct {
 }
 
 func main() {
-	godotenv.Load()
+	_ = godotenv.Load()
 
 	var cfg apiConfig
 	cfg.port = port

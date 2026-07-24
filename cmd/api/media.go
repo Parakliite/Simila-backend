@@ -6,6 +6,8 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
+	"net/url"
+	"strconv"
 	"time"
 
 	"github.com/parakliite/simila/internal/data"
@@ -82,16 +84,31 @@ func (app *application) getMediaHandler(w http.ResponseWriter, r *http.Request) 
 		media.Genre = []data.Genre{}
 	}
 
-	app.writeJSON(w, http.StatusOK, envelope{"media": media}, nil)
+	err = app.writeJSON(w, http.StatusOK, envelope{"media": media}, nil)
+	if err != nil {
+		app.serverErrorResponse(w, r, err)
+	}
 }
 
 func (app *application) fetchAndSaveMedia(ctx context.Context, tmdbID int32, mediaType string) (*data.Media, error) {
-	url := fmt.Sprintf("%s/3/%s/%d", app.config.tmdbBaseURL, mediaType, tmdbID)
-	req, _ := http.NewRequest("GET", url, nil)
-	req.Header.Set("Authorization", "Bearer "+app.config.tmdbToken)
+	tmdbIDPath := strconv.FormatInt(int64(tmdbID), 10)
+	var path []string
+	switch mediaType {
+	case "movie":
+		path = []string{"3", "movie", tmdbIDPath}
+	case "tv":
+		path = []string{"3", "tv", tmdbIDPath}
+	default:
+		return nil, errors.New("invalid media type")
+	}
+
+	req, err := app.newTMDBRequest(ctx, path, url.Values{})
+	if err != nil {
+		return nil, err
+	}
 
 	client := &http.Client{Timeout: 5 * time.Second}
-	resp, err := client.Do(req)
+	resp, err := client.Do(req) // #nosec G704 -- TMDB URL is built from a validated base URL, fixed path segments, and a numeric ID.
 	if err != nil {
 		return nil, fmt.Errorf("failed to fetch from TMDB: %v", err)
 	}

@@ -156,7 +156,7 @@ func (app *application) listWatchlistItemsHandler(w http.ResponseWriter, r *http
 	items, err := app.models.Watchlist.GetAllItemsInWatchlist(
 		r.Context(),
 		cursorCreatedAt,
-		int32(limit+1),
+		limit+1,
 		mediaStatus,
 		user.ID,
 		cursorMediaID,
@@ -167,7 +167,7 @@ func (app *application) listWatchlistItemsHandler(w http.ResponseWriter, r *http
 	}
 
 	var nextCursor *string
-	if len(items) > limit {
+	if len(items) > int(limit) {
 		items = items[:limit]
 		last := items[len(items)-1]
 		c := app.encodeCursor(last.Media.ID, last.Watchlist.CreatedAt)

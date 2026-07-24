@@ -37,7 +37,7 @@ type User struct {
 	Email             string    `json:"email"`
 	Password          password  `json:"-"`
 	Activated         bool      `json:"activated"`
-	Version           int       `json:"-"`
+	Version           int32     `json:"-"`
 }
 
 type password struct {
@@ -98,7 +98,7 @@ func (m UserModel) Insert(ctx context.Context, user *User) error {
 	user.CreatedAt = row.CreatedAt
 	user.UpdatedAt = row.UpdatedAt
 	user.Activated = row.Activated
-	user.Version = int(row.Version)
+	user.Version = row.Version
 
 	return nil
 }
@@ -127,7 +127,7 @@ func (m UserModel) GetByEmail(ctx context.Context, email string) (*User, error) 
 		ProfilePictureURL: row.ProfilePictureUrl.String,
 		About:             row.About.String,
 		Activated:         row.Activated,
-		Version:           int(row.Version),
+		Version:           row.Version,
 	}
 
 	return user, nil
@@ -157,7 +157,7 @@ func (m UserModel) GetByID(ctx context.Context, id uuid.UUID) (*User, error) {
 		ProfilePictureURL: row.ProfilePictureUrl.String,
 		About:             row.About.String,
 		Activated:         row.Activated,
-		Version:           int(row.Version),
+		Version:           row.Version,
 	}
 
 	return user, nil
@@ -181,7 +181,7 @@ func (m UserModel) UpdateUser(ctx context.Context, user *User) error {
 		Activated:    user.Activated,
 		PasswordHash: user.Password.hash,
 		ID:           user.ID,
-		Version:      int32(user.Version),
+		Version:      user.Version,
 	})
 	if err != nil {
 		switch {
@@ -193,7 +193,7 @@ func (m UserModel) UpdateUser(ctx context.Context, user *User) error {
 			return err
 		}
 	}
-	user.Version = int(version)
+	user.Version = version
 	return nil
 }
 
@@ -226,7 +226,7 @@ func (m UserModel) GetForToken(ctx context.Context, tokenScope, tokenPlaintext s
 		ProfilePictureURL: row.ProfilePictureUrl.String,
 		About:             row.About.String,
 		Activated:         row.Activated,
-		Version:           int(row.Version),
+		Version:           row.Version,
 	}
 
 	return user, nil

@@ -3,16 +3,16 @@ Author: deltron-fr
 
 
 1. I haven't implemented multi-threaded comments on the data layer. It is only single-threaded for now and 
- it endpoints for it haven't been created.
+ it endpoints for it haven't been created. - `NOT MVP`
 
-2. The current solution for matches is O(N^2). At scale that is horrendous. I need to remember to fix that.
+2. The current solution for matches is O(N^2). At scale that is horrendous. I need to remember to fix that. - `NOT MVP`
 
 3. Currently no endpoint calls the matches functionality. It currently lives it on its own. Though the plan for it is
   to use a cronjob or some kind of scheduler
 
 4. The users profile page has not yet been implemented - `COMPLETED`
 
-5. Login flow is not fully complete. Refresh tokens are completely missing
+5. Login flow is not fully complete. Refresh tokens are completely missing 
 
 6. This is not really important right now but change the logging strategy to slog.
 
@@ -29,13 +29,13 @@ and the cursor pagination logic for ratings is currently set up in a way that me
 so the intended "fetch from TMDB and save it" path will not run as expected. - `COMPLETED`
 
 10. Search is only covering TMDB movies and TV shows right now. The UI also searches people/matches and has search-related
-discovery affordances, so there is no backend support yet for searching users/matches or persisting recent searches if I keep that behavior.
+discovery affordances, so there is no backend support yet for searching users/matches or persisting recent searches if I keep that behavior. - `ALMOST DONE`
 
 11. There is no backend surface for the home/discovery feed that the UI expects. Things like "top rated by your matches",
 "because you loved ...", "pick of the night", "hot takes", and the general activity feed still need proper backend endpoints or aggregators.
 
 12. The Impact feature is only partially backed. Raw reactions exist, but there is no aggregated Impact endpoint for the summary
-counts/highlights feed, and the current reaction model cannot store the watched follow-up sentiment or optional quote shown in the UI.
+counts/highlights feed, and the current reaction model cannot store the watched follow-up sentiment or optional quote shown in the UI. - `COMPLETED`
 
 13. The watchlist endpoints still need to better match the product behavior I actually want. The current model can support this,
 but I still need to shape the filtering/state behavior around things like the watchlist buckets and how watched/not-watched items
@@ -110,6 +110,15 @@ The matching logic already exists, so exposing/triggering it is likely easier th
   - probably some freshness/recompute strategy
   - maybe thresholds, exclusions, pagination, and explanation metadata
 
+
+  The MVP fix should probably be:
+
+  - scheduled/background recalculation
+  - only recompute users who changed ratings recently
+  - persist results in user_matches
+  - endpoint reads from user_matches
+  - avoid calculating matches live during request
+
 8. `#12` Finish the Impact feature backend.
 Important for the UI, but this likely expands the reaction model and adds aggregation work, so it is less contained.
 
@@ -124,6 +133,16 @@ Important long-term, but this is a performance/algorithm task that is easy to un
 
 12. `#11` Build the home/discovery feed backend surface.
 High value, but this is one of the broadest items because it implies multiple endpoints, aggregations, and recommendation logic.
+
+  MVP home discovery can be a composed response like:
+
+  {
+    "rating_candidates": [],
+    "top_rated_by_matches": [],
+    "recommended_from_matches": [],
+    "recent_activity": [],
+    "hot_takes": []
+  }
 
 13. `#1` Implement multi-threaded comments in the data layer and add endpoints.
 Large feature with schema, data-model, and API work. This is not a good "next issue" if the goal is importance plus manageable difficulty.

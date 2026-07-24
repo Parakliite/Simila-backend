@@ -45,14 +45,14 @@ func (app *application) getImpact(w http.ResponseWriter, req *http.Request) {
 		req.Context(),
 		ratingUserID,
 		cursorCreatedAt,
-		cursorReactorUserID, int32(limit))
+		cursorReactorUserID, limit+1)
 	if err != nil {
 		app.serverErrorResponse(w, req, err)
 		return
 	}
 
 	var nextCursor *string
-	if len(reactions) > limit {
+	if len(reactions) > int(limit) {
 		reactions = reactions[:limit]
 		last := reactions[len(reactions)-1]
 		c := app.encodeCursor(last.Reactor.ID, last.CreatedAt)
@@ -99,5 +99,8 @@ func (app *application) getImpact(w http.ResponseWriter, req *http.Request) {
 		}
 	}
 
-	app.writeJSON(w, http.StatusOK, envelope{"impact": groupedReactions, "next_cursor": nextCursor}, nil)
+	err = app.writeJSON(w, http.StatusOK, envelope{"impact": groupedReactions, "next_cursor": nextCursor}, nil)
+	if err != nil {
+		app.serverErrorResponse(w, req, err)
+	}
 }

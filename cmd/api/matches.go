@@ -23,9 +23,12 @@ func (app *application) listMatchesHandler(w http.ResponseWriter, req *http.Requ
 		ratings,
 		indexmap)
 	if err != nil {
-		// TODO: do something
+		app.serverErrorResponse(w, req, err)
 		return
 	}
 
-	app.writeJSON(w, http.StatusOK, envelope{"matches": similarities}, nil)
+	err = app.writeJSON(w, http.StatusOK, envelope{"matches": similarities}, nil)
+	if err != nil {
+		app.serverErrorResponse(w, req, err)
+	}
 }

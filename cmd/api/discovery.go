@@ -48,5 +48,8 @@ func (app *application) ListRandomMedia(w http.ResponseWriter, req *http.Request
 		}
 	}
 
-	app.writeJSON(w, http.StatusOK, envelope{"media": parsedMediaList}, nil)
+	err = app.writeJSON(w, http.StatusOK, envelope{"media": parsedMediaList}, nil)
+	if err != nil {
+		app.serverErrorResponse(w, req, err)
+	}
 }

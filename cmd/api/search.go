@@ -4,7 +4,6 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
-	"fmt"
 	"net/http"
 	"net/url"
 	"time"
@@ -20,8 +19,12 @@ func (app *application) searchHandler(w http.ResponseWriter, req *http.Request) 
 		return
 	}
 
+	var limit int32
 	qs := req.URL.Query()
-	limit := app.readInt(qs, "limit", 10)
+	limit = app.readInt(qs, "limit", 10)
+	if limit < 1 || limit > 70 {
+		limit = 20
+	}
 
 	var users []data.User
 	var media_results []TMDBSearchResult
@@ -30,13 +33,13 @@ func (app *application) searchHandler(w http.ResponseWriter, req *http.Request) 
 
 	g.Go(func() error {
 		var err error
-		media_results, err = app.mediaSearch(query)
+		media_results, err = app.mediaSearch(ctx, query)
 		return err
 	})
 
 	g.Go(func() error {
 		var err error
-		users, err = app.userSearch(ctx, query, int32(limit))
+		users, err = app.userSearch(ctx, query, limit)
 		return err
 	})
 
@@ -45,7 +48,10 @@ func (app *application) searchHandler(w http.ResponseWriter, req *http.Request) 
 		return
 	}
 
-	app.writeJSON(w, http.StatusOK, envelope{"media_results": media_results, "users_results": users}, nil)
+	err := app.writeJSON(w, http.StatusOK, envelope{"media_results": media_results, "users_results": users}, nil)
+	if err != nil {
+		app.serverErrorResponse(w, req, err)
+	}
 }
 
 func (app *application) userSearch(ctx context.Context, query string, limit int32) ([]data.User, error) {
@@ -57,10 +63,13 @@ func (app *application) userSearch(ctx context.Context, query string, limit int3
 	return users, nil
 }
 
-func (app *application) mediaSearch(query string) ([]TMDBSearchResult, error) {
-	url := fmt.Sprintf("%s/3/search/multi?query=%s", app.config.tmdbBaseURL, url.QueryEscape(query))
-	req, _ := http.NewRequest("GET", url, nil)
-	req.Header.Set("Authorization", "Bearer "+app.config.tmdbToken)
+func (app *application) mediaSearch(ctx context.Context, query string) ([]TMDBSearchResult, error) {
+	req, err := app.newTMDBRequest(ctx, []string{"3", "search", "multi"}, url.Values{
+		"query": []string{query},
+	})
+	if err != nil {
+		return nil, err
+	}
 
 	client := &http.Client{Timeout: 5 * time.Second}
 	resp, err := client.Do(req)

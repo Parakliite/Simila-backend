@@ -98,12 +98,15 @@ func (m MatchModel) GetSimilarities(
 		}
 
 		if shared > 4 && cosineSim >= 0.5 {
-			m.q.UpsertUserMatch(ctx, database.UpsertUserMatchParams{
+			_, err := m.q.UpsertUserMatch(ctx, database.UpsertUserMatchParams{
 				TargetUserID:     targetUserID,
 				OtherUserID:      user,
 				Score:            cosineSim,
 				SharedMediaCount: int32(shared),
 			})
+			if err != nil {
+				return nil, fmt.Errorf("could not upsert user match: %w", err)
+			}
 		}
 
 		similarities[user] = cosineSim
