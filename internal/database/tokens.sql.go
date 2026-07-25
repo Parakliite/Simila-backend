@@ -7,6 +7,7 @@ package database
 
 import (
 	"context"
+	"database/sql"
 	"time"
 
 	"github.com/google/uuid"
@@ -47,4 +48,62 @@ type DeleteAllTokensAllForUserParams struct {
 func (q *Queries) DeleteAllTokensAllForUser(ctx context.Context, arg DeleteAllTokensAllForUserParams) error {
 	_, err := q.db.ExecContext(ctx, deleteAllTokensAllForUser, arg.Scope, arg.UserID)
 	return err
+}
+
+const getUserFromToken = `-- name: GetUserFromToken :one
+SELECT user_id, revoked_at
+FROM tokens
+WHERE token_hash = $1 AND scope = $2
+`
+
+type GetUserFromTokenParams struct {
+	TokenHash []byte
+	Scope     string
+}
+
+type GetUserFromTokenRow struct {
+	UserID    uuid.UUID
+	RevokedAt sql.NullTime
+}
+
+func (q *Queries) GetUserFromToken(ctx context.Context, arg GetUserFromTokenParams) (GetUserFromTokenRow, error) {
+	row := q.db.QueryRowContext(ctx, getUserFromToken, arg.TokenHash, arg.Scope)
+	var i GetUserFromTokenRow
+	err := row.Scan(&i.UserID, &i.RevokedAt)
+	return i, err
+}
+
+const revokeAllPreviousTokens = `-- name: RevokeAllPreviousTokens :exec
+UPDATE tokens
+SET revoked_at = NOW()
+WHERE user_id = $1 AND scope = $2
+`
+
+type RevokeAllPreviousTokensParams struct {
+	UserID uuid.UUID
+	Scope  string
+}
+
+func (q *Queries) RevokeAllPreviousTokens(ctx context.Context, arg RevokeAllPreviousTokensParams) error {
+	_, err := q.db.ExecContext(ctx, revokeAllPreviousTokens, arg.UserID, arg.Scope)
+	return err
+}
+
+const revokePreviousToken = `-- name: RevokePreviousToken :execrows
+UPDATE tokens
+SET revoked_at = NOW()
+WHERE token_hash = $1 AND scope = $2
+`
+
+type RevokePreviousTokenParams struct {
+	TokenHash []byte
+	Scope     string
+}
+
+func (q *Queries) RevokePreviousToken(ctx context.Context, arg RevokePreviousTokenParams) (int64, error) {
+	result, err := q.db.ExecContext(ctx, revokePreviousToken, arg.TokenHash, arg.Scope)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected()
 }

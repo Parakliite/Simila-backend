@@ -10,7 +10,8 @@ func (app *application) routes() http.Handler {
 
 	// Public endpoints
 	mux.HandleFunc("POST /api/v1/users", app.registerUserHandler)
-	mux.HandleFunc("POST /api/v1/login", app.createAuthenticationTokenHandler)
+	mux.HandleFunc("POST /api/v1/login", app.loginHandler)
+	mux.HandleFunc("POST /api/v1/refresh", app.refreshHandler)
 	mux.HandleFunc("PUT /api/v1/users/activated", app.activateUserHandler)
 	mux.HandleFunc("GET /api/v1/health", app.healthCheckHandler)
 

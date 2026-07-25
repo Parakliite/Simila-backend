@@ -14,4 +14,5 @@ INNER JOIN tokens
 ON users.id = tokens.user_id
 WHERE tokens.token_hash = $1
 AND tokens.scope = $2
-AND tokens.expiry > $3;
+AND tokens.expiry > $3
+AND tokens.revoked_at IS NULL;

@@ -103,6 +103,7 @@ func (m UserModel) Insert(ctx context.Context, user *User) error {
 	return nil
 }
 
+// this function is internally used by the login handler, that is why it returns the password hash
 func (m UserModel) GetByEmail(ctx context.Context, email string) (*User, error) {
 	ctx, cancel := context.WithTimeout(ctx, 3*time.Second)
 	defer cancel()
@@ -199,9 +200,6 @@ func (m UserModel) UpdateUser(ctx context.Context, user *User) error {
 
 func (m UserModel) GetForToken(ctx context.Context, tokenScope, tokenPlaintext string) (*User, error) {
 	tokenHash := sha256.Sum256([]byte(tokenPlaintext))
-
-	ctx, cancel := context.WithTimeout(ctx, 3*time.Second)
-	defer cancel()
 
 	row, err := m.q.GetTokenForUser(ctx, database.GetTokenForUserParams{
 		TokenHash: tokenHash[:],

@@ -6,6 +6,7 @@ import (
 	"crypto/sha256"
 	"database/sql"
 	"encoding/base32"
+	"errors"
 	"time"
 
 	"github.com/google/uuid"
@@ -16,6 +17,7 @@ import (
 const (
 	ScopeActivation     = "activation"
 	ScopeAuthentication = "authentication"
+	ScopeRefresh        = "refresh"
 )
 
 type Token struct {
@@ -84,10 +86,47 @@ func (m TokenModel) Insert(ctx context.Context, token *Token) error {
 	return err
 }
 
-func (m TokenModel) DeleteAllForUser(ctx context.Context, scope string, userID uuid.UUID) error {
-	ctx, cancel := context.WithTimeout(ctx, 3*time.Second)
-	defer cancel()
+func (m TokenModel) GetUserFromToken(ctx context.Context, scope string, tokenHash []byte) (uuid.UUID, bool, error) {
+	row, err := m.q.GetUserFromToken(ctx, database.GetUserFromTokenParams{
+		Scope:     scope,
+		TokenHash: tokenHash,
+	})
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return uuid.Nil, false, ErrRecordNotFound
+		}
+		return uuid.Nil, false, err
+	}
 
+	isRevoked := row.RevokedAt.Valid
+
+	return row.UserID, isRevoked, nil
+}
+
+func (m TokenModel) RevokePreviousToken(ctx context.Context, scope string, tokenHash []byte) error {
+	row, err := m.q.RevokePreviousToken(ctx, database.RevokePreviousTokenParams{
+		Scope:     scope,
+		TokenHash: tokenHash,
+	})
+	if err != nil {
+		return err
+	}
+
+	if row == 0 {
+		return ErrRecordNotFound
+	}
+
+	return nil
+}
+
+func (m TokenModel) RevokeAllPreviousTokens(ctx context.Context, scope string, userID uuid.UUID) error {
+	return m.q.RevokeAllPreviousTokens(ctx, database.RevokeAllPreviousTokensParams{
+		UserID: userID,
+		Scope: scope,
+	})
+}
+
+func (m TokenModel) DeleteAllForUser(ctx context.Context, scope string, userID uuid.UUID) error {
 	err := m.q.DeleteAllTokensAllForUser(ctx, database.DeleteAllTokensAllForUserParams{
 		Scope:  scope,
 		UserID: userID,

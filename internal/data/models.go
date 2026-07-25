@@ -26,6 +26,9 @@ type UserQuerier interface {
 type TokenQuerier interface {
 	New(ctx context.Context, userID uuid.UUID, ttl time.Duration, scope string) (*Token, error)
 	Insert(ctx context.Context, token *Token) error
+	GetUserFromToken(ctx context.Context, scope string, tokenHash []byte) (uuid.UUID, bool, error)
+	RevokePreviousToken(ctx context.Context, scope string, tokenHash []byte) error
+	RevokeAllPreviousTokens(ctx context.Context, scope string, userID uuid.UUID) error
 	DeleteAllForUser(ctx context.Context, scope string, userID uuid.UUID) error
 }
 

@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"crypto/sha256"
 	"fmt"
 	"io"
 	"net/http"
@@ -147,18 +148,26 @@ func (m *mockUserModel) SearchUsers(ctx context.Context, query string, limit int
 // --- mock token model ---
 
 type mockTokenModel struct {
-	tokens map[uuid.UUID][]*data.Token
+	tokens  map[uuid.UUID][]*data.Token
+	revoked map[string]bool
+	counter int
 }
 
 func newMockTokenModel() *mockTokenModel {
 	return &mockTokenModel{
-		tokens: make(map[uuid.UUID][]*data.Token),
+		tokens:  make(map[uuid.UUID][]*data.Token),
+		revoked: make(map[string]bool),
 	}
 }
 
 func (m *mockTokenModel) New(ctx context.Context, userID uuid.UUID, ttl time.Duration, scope string) (*data.Token, error) {
+	m.counter++
+	plaintext := fmt.Sprintf("%026d", m.counter)
+	hash := sha256.Sum256([]byte(plaintext))
+
 	token := &data.Token{
-		Plaintext: "ABCDEFGHIJKLMNOPQRSTUVWXYZ",
+		Plaintext: plaintext,
+		Hash:      hash[:],
 		UserID:    userID,
 		Expiry:    time.Now().Add(ttl),
 		Scope:     scope,
@@ -172,6 +181,38 @@ func (m *mockTokenModel) Insert(ctx context.Context, token *data.Token) error {
 	return nil
 }
 
+func (m *mockTokenModel) GetUserFromToken(ctx context.Context, scope string, tokenHash []byte) (uuid.UUID, bool, error) {
+	for userID, tokens := range m.tokens {
+		for _, token := range tokens {
+			if token.Scope == scope && string(token.Hash) == string(tokenHash) {
+				return userID, m.revoked[tokenKey(scope, tokenHash)], nil
+			}
+		}
+	}
+	return uuid.Nil, false, data.ErrRecordNotFound
+}
+
+func (m *mockTokenModel) RevokePreviousToken(ctx context.Context, scope string, tokenHash []byte) error {
+	for _, tokens := range m.tokens {
+		for _, token := range tokens {
+			if token.Scope == scope && string(token.Hash) == string(tokenHash) {
+				m.revoked[tokenKey(scope, tokenHash)] = true
+				return nil
+			}
+		}
+	}
+	return data.ErrRecordNotFound
+}
+
+func (m *mockTokenModel) RevokeAllPreviousTokens(ctx context.Context, scope string, userID uuid.UUID) error {
+	for _, token := range m.tokens[userID] {
+		if token.Scope == scope {
+			m.revoked[tokenKey(scope, token.Hash)] = true
+		}
+	}
+	return nil
+}
+
 func (m *mockTokenModel) DeleteAllForUser(ctx context.Context, scope string, userID uuid.UUID) error {
 	var remaining []*data.Token
 	for _, t := range m.tokens[userID] {
@@ -181,6 +222,10 @@ func (m *mockTokenModel) DeleteAllForUser(ctx context.Context, scope string, use
 	}
 	m.tokens[userID] = remaining
 	return nil
+}
+
+func tokenKey(scope string, tokenHash []byte) string {
+	return scope + ":" + string(tokenHash)
 }
 
 // --- mock rating model ---

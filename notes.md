@@ -12,7 +12,7 @@ Author: deltron-fr
 
 4. The users profile page has not yet been implemented - `COMPLETED`
 
-5. Login flow is not fully complete. Refresh tokens are completely missing 
+5. Login flow is not fully complete. Refresh tokens are completely missing - `COMPLETED` 
 
 6. This is not really important right now but change the logging strategy to slog.
 
@@ -29,7 +29,7 @@ and the cursor pagination logic for ratings is currently set up in a way that me
 so the intended "fetch from TMDB and save it" path will not run as expected. - `COMPLETED`
 
 10. Search is only covering TMDB movies and TV shows right now. The UI also searches people/matches and has search-related
-discovery affordances, so there is no backend support yet for searching users/matches or persisting recent searches if I keep that behavior. - `ALMOST DONE`
+discovery affordances, so there is no backend support yet for searching users/matches or persisting recent searches if I keep that behavior. - `COMPLETED`
 
 11. There is no backend surface for the home/discovery feed that the UI expects. Things like "top rated by your matches",
 "because you loved ...", "pick of the night", "hot takes", and the general activity feed still need proper backend endpoints or aggregators.
@@ -149,3 +149,4 @@ Large feature with schema, data-model, and API work. This is not a good "next is
 
 14. `#4` User profile page.
 Already completed.
+
