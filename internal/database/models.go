@@ -185,9 +185,10 @@ type ReactionComment struct {
 type Token struct {
 	TokenHash []byte
 	UserID    uuid.UUID
+	SessionID uuid.NullUUID
+	CreatedAt time.Time
 	Expiry    time.Time
 	Scope     string
-	CreatedAt time.Time
 	RevokedAt sql.NullTime
 }
 

@@ -9,8 +9,8 @@ import (
 )
 
 type authTokenPayload struct {
-	Token  string `json:"token"`
-	Expiry string `json:"expiry"`
+	Token     string  `json:"token"`
+	SessionID *string `json:"session_id"`
 }
 
 type authResponse struct {
@@ -29,7 +29,7 @@ func decodeAuthResponse(t *testing.T, rr *httptest.ResponseRecorder) authRespons
 	return resp
 }
 
-func assertTokenPayload(t *testing.T, token authTokenPayload, name string) {
+func assertTokenPayload(t *testing.T, token authTokenPayload, name string, wantSessionID bool) {
 	t.Helper()
 
 	if token.Token == "" {
@@ -38,8 +38,11 @@ func assertTokenPayload(t *testing.T, token authTokenPayload, name string) {
 	if len(token.Token) != 26 {
 		t.Fatalf("expected %s token length 26, got %d", name, len(token.Token))
 	}
-	if token.Expiry == "" {
-		t.Fatalf("expected %s expiry in response", name)
+	if wantSessionID && token.SessionID == nil {
+		t.Fatalf("expected %s session_id in response", name)
+	}
+	if !wantSessionID && token.SessionID != nil {
+		t.Fatalf("expected no %s session_id in response", name)
 	}
 }
 
@@ -82,8 +85,8 @@ func TestCreateAuthToken_ValidCredentials(t *testing.T) {
 
 	resp := decodeAuthResponse(t, rr)
 
-	assertTokenPayload(t, resp.AccessToken, "access")
-	assertTokenPayload(t, resp.RefreshToken, "refresh")
+	assertTokenPayload(t, resp.AccessToken, "access", false)
+	assertTokenPayload(t, resp.RefreshToken, "refresh", true)
 	if resp.AccessToken.Token == resp.RefreshToken.Token {
 		t.Fatal("expected access and refresh tokens to be different")
 	}
@@ -178,8 +181,8 @@ func TestRefreshToken_ValidRefreshTokenRotatesTokens(t *testing.T) {
 	}
 
 	refreshResp := decodeAuthResponse(t, rr)
-	assertTokenPayload(t, refreshResp.AccessToken, "access")
-	assertTokenPayload(t, refreshResp.RefreshToken, "refresh")
+	assertTokenPayload(t, refreshResp.AccessToken, "access", false)
+	assertTokenPayload(t, refreshResp.RefreshToken, "refresh", true)
 	if refreshResp.AccessToken.Token == loginResp.AccessToken.Token {
 		t.Fatal("expected a new access token")
 	}

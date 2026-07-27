@@ -105,7 +105,7 @@ func (m *mockUserModel) UpdateUser(ctx context.Context, user *data.User) error {
 	return nil
 }
 
-func (m *mockUserModel) GetForToken(ctx context.Context, tokenScope, tokenPlaintext string) (*data.User, error) {
+func (m *mockUserModel) GetUserForToken(ctx context.Context, tokenScope, tokenPlaintext string) (*data.User, error) {
 	key := tokenScope + ":" + tokenPlaintext
 	user, ok := m.forToken[key]
 	if !ok {
@@ -145,6 +145,10 @@ func (m *mockUserModel) SearchUsers(ctx context.Context, query string, limit int
 	return users, nil
 }
 
+func (m *mockUserModel) RevokeAllTokensForSession(sessionID uuid.UUID, scope string) error {
+	return nil
+}
+
 // --- mock token model ---
 
 type mockTokenModel struct {
@@ -160,7 +164,7 @@ func newMockTokenModel() *mockTokenModel {
 	}
 }
 
-func (m *mockTokenModel) New(ctx context.Context, userID uuid.UUID, ttl time.Duration, scope string) (*data.Token, error) {
+func (m *mockTokenModel) New(ctx context.Context, userID uuid.UUID, sessionID uuid.NullUUID, ttl time.Duration, scope string) (*data.Token, error) {
 	m.counter++
 	plaintext := fmt.Sprintf("%026d", m.counter)
 	hash := sha256.Sum256([]byte(plaintext))
@@ -168,6 +172,7 @@ func (m *mockTokenModel) New(ctx context.Context, userID uuid.UUID, ttl time.Dur
 	token := &data.Token{
 		Plaintext: plaintext,
 		Hash:      hash[:],
+		SessionID: sessionID,
 		UserID:    userID,
 		Expiry:    time.Now().Add(ttl),
 		Scope:     scope,
@@ -181,15 +186,23 @@ func (m *mockTokenModel) Insert(ctx context.Context, token *data.Token) error {
 	return nil
 }
 
-func (m *mockTokenModel) GetUserFromToken(ctx context.Context, scope string, tokenHash []byte) (uuid.UUID, bool, error) {
+func (m *mockTokenModel) GetUserIDFromToken(ctx context.Context, scope string, tokenHash []byte) (uuid.UUID, uuid.UUID, error) {
 	for userID, tokens := range m.tokens {
 		for _, token := range tokens {
 			if token.Scope == scope && string(token.Hash) == string(tokenHash) {
-				return userID, m.revoked[tokenKey(scope, tokenHash)], nil
+				if m.revoked[tokenKey(scope, tokenHash)] || time.Now().After(token.Expiry) {
+					return uuid.Nil, uuid.Nil, data.ErrRecordNotFound
+				}
+
+				if token.SessionID.Valid {
+					return userID, token.SessionID.UUID, nil
+				}
+
+				return userID, uuid.Nil, nil
 			}
 		}
 	}
-	return uuid.Nil, false, data.ErrRecordNotFound
+	return uuid.Nil, uuid.Nil, data.ErrRecordNotFound
 }
 
 func (m *mockTokenModel) RevokePreviousToken(ctx context.Context, scope string, tokenHash []byte) error {

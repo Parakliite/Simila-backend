@@ -19,14 +19,15 @@ type UserQuerier interface {
 	GetByEmail(ctx context.Context, email string) (*User, error)
 	GetByID(ctx context.Context, id uuid.UUID) (*User, error)
 	UpdateUser(ctx context.Context, user *User) error
-	GetForToken(ctx context.Context, tokenScope, tokenPlaintext string) (*User, error)
+	GetUserForToken(ctx context.Context, tokenScope, tokenPlaintext string) (*User, error)
 	SearchUsers(ctx context.Context, query string, limit int32) ([]User, error)
+	RevokeAllTokensForSession(sessionID uuid.UUID, scope string) error
 }
 
 type TokenQuerier interface {
-	New(ctx context.Context, userID uuid.UUID, ttl time.Duration, scope string) (*Token, error)
+	New(ctx context.Context, userID uuid.UUID, sessionID uuid.NullUUID, ttl time.Duration, scope string) (*Token, error)
 	Insert(ctx context.Context, token *Token) error
-	GetUserFromToken(ctx context.Context, scope string, tokenHash []byte) (uuid.UUID, bool, error)
+	GetUserIDFromToken(ctx context.Context, scope string, tokenHash []byte) (userID uuid.UUID, sessionID uuid.UUID, err error)
 	RevokePreviousToken(ctx context.Context, scope string, tokenHash []byte) error
 	RevokeAllPreviousTokens(ctx context.Context, scope string, userID uuid.UUID) error
 	DeleteAllForUser(ctx context.Context, scope string, userID uuid.UUID) error

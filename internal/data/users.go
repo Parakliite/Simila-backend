@@ -198,13 +198,12 @@ func (m UserModel) UpdateUser(ctx context.Context, user *User) error {
 	return nil
 }
 
-func (m UserModel) GetForToken(ctx context.Context, tokenScope, tokenPlaintext string) (*User, error) {
+func (m UserModel) GetUserForToken(ctx context.Context, tokenScope, tokenPlaintext string) (*User, error) {
 	tokenHash := sha256.Sum256([]byte(tokenPlaintext))
 
-	row, err := m.q.GetTokenForUser(ctx, database.GetTokenForUserParams{
+	row, err := m.q.GetUserForToken(ctx, database.GetUserForTokenParams{
 		TokenHash: tokenHash[:],
 		Scope:     tokenScope,
-		Expiry:    time.Now().UTC(),
 	})
 	if err != nil {
 		switch {
@@ -228,6 +227,10 @@ func (m UserModel) GetForToken(ctx context.Context, tokenScope, tokenPlaintext s
 	}
 
 	return user, nil
+}
+
+func (m UserModel) RevokeAllTokensForSession(sessionID uuid.UUID, scope string) error {
+	return m.RevokeAllTokensForSession(sessionID, scope)
 }
 
 func ValidateEmail(v *validator.Validator, email string) {

@@ -5,6 +5,7 @@ import (
 	"net/http"
 	"time"
 
+	"github.com/google/uuid"
 	"github.com/parakliite/simila/internal/data"
 	"github.com/parakliite/simila/internal/validator"
 )
@@ -133,7 +134,12 @@ func (app *application) registerUserHandler(w http.ResponseWriter, r *http.Reque
 		return
 	}
 
-	token, err := app.models.Tokens.New(r.Context(), user.ID, 3*24*time.Hour, data.ScopeActivation)
+	token, err := app.models.Tokens.New(
+		r.Context(),
+		user.ID,
+		uuid.NullUUID{Valid: false},
+		24*time.Hour,
+		data.ScopeActivation)
 	if err != nil {
 		app.serverErrorResponse(w, r, err)
 		return
@@ -175,7 +181,7 @@ func (app *application) activateUserHandler(w http.ResponseWriter, r *http.Reque
 		return
 	}
 
-	user, err := app.models.Users.GetForToken(r.Context(), data.ScopeActivation, input.TokenPlaintext)
+	user, err := app.models.Users.GetUserForToken(r.Context(), data.ScopeActivation, input.TokenPlaintext)
 	if err != nil {
 		switch {
 		case errors.Is(err, data.ErrRecordNotFound):

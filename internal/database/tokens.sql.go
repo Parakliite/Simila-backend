@@ -7,19 +7,19 @@ package database
 
 import (
 	"context"
-	"database/sql"
 	"time"
 
 	"github.com/google/uuid"
 )
 
 const createToken = `-- name: CreateToken :exec
-INSERT INTO tokens (token_hash, user_id, expiry, scope)
-VALUES ($1, $2, $3, $4)
+INSERT INTO tokens (token_hash, session_id, user_id, expiry, scope)
+VALUES ($1, $2, $3, $4, $5)
 `
 
 type CreateTokenParams struct {
 	TokenHash []byte
+	SessionID uuid.NullUUID
 	UserID    uuid.UUID
 	Expiry    time.Time
 	Scope     string
@@ -28,6 +28,7 @@ type CreateTokenParams struct {
 func (q *Queries) CreateToken(ctx context.Context, arg CreateTokenParams) error {
 	_, err := q.db.ExecContext(ctx, createToken,
 		arg.TokenHash,
+		arg.SessionID,
 		arg.UserID,
 		arg.Expiry,
 		arg.Scope,
@@ -51,9 +52,12 @@ func (q *Queries) DeleteAllTokensAllForUser(ctx context.Context, arg DeleteAllTo
 }
 
 const getUserFromToken = `-- name: GetUserFromToken :one
-SELECT user_id, revoked_at
+SELECT user_id, session_id
 FROM tokens
-WHERE token_hash = $1 AND scope = $2
+WHERE token_hash = $1
+  AND scope = $2
+  AND revoked_at IS NULL
+  AND expiry > NOW()
 `
 
 type GetUserFromTokenParams struct {
@@ -63,20 +67,20 @@ type GetUserFromTokenParams struct {
 
 type GetUserFromTokenRow struct {
 	UserID    uuid.UUID
-	RevokedAt sql.NullTime
+	SessionID uuid.NullUUID
 }
 
 func (q *Queries) GetUserFromToken(ctx context.Context, arg GetUserFromTokenParams) (GetUserFromTokenRow, error) {
 	row := q.db.QueryRowContext(ctx, getUserFromToken, arg.TokenHash, arg.Scope)
 	var i GetUserFromTokenRow
-	err := row.Scan(&i.UserID, &i.RevokedAt)
+	err := row.Scan(&i.UserID, &i.SessionID)
 	return i, err
 }
 
 const revokeAllPreviousTokens = `-- name: RevokeAllPreviousTokens :exec
 UPDATE tokens
 SET revoked_at = NOW()
-WHERE user_id = $1 AND scope = $2
+WHERE user_id = $1 AND scope = $2 AND revoked_at IS NULL
 `
 
 type RevokeAllPreviousTokensParams struct {
@@ -89,10 +93,26 @@ func (q *Queries) RevokeAllPreviousTokens(ctx context.Context, arg RevokeAllPrev
 	return err
 }
 
+const revokeAllTokensForSession = `-- name: RevokeAllTokensForSession :exec
+UPDATE tokens
+SET revoked_at = NOW()
+WHERE session_id = $1 AND scope = $2 AND revoked_at IS NULL
+`
+
+type RevokeAllTokensForSessionParams struct {
+	SessionID uuid.NullUUID
+	Scope     string
+}
+
+func (q *Queries) RevokeAllTokensForSession(ctx context.Context, arg RevokeAllTokensForSessionParams) error {
+	_, err := q.db.ExecContext(ctx, revokeAllTokensForSession, arg.SessionID, arg.Scope)
+	return err
+}
+
 const revokePreviousToken = `-- name: RevokePreviousToken :execrows
 UPDATE tokens
 SET revoked_at = NOW()
-WHERE token_hash = $1 AND scope = $2
+WHERE token_hash = $1 AND scope = $2 AND revoked_at IS NULL
 `
 
 type RevokePreviousTokenParams struct {

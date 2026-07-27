@@ -13,7 +13,7 @@ import (
 	"github.com/google/uuid"
 )
 
-const getTokenForUser = `-- name: GetTokenForUser :one
+const getUserForToken = `-- name: GetUserForToken :one
 
 SELECT users.id, 
       users.created_at, 
@@ -29,16 +29,16 @@ INNER JOIN tokens
 ON users.id = tokens.user_id
 WHERE tokens.token_hash = $1
 AND tokens.scope = $2
-AND tokens.expiry > $3
+AND tokens.expiry > NOW()
+AND tokens.revoked_at IS NULL
 `
 
-type GetTokenForUserParams struct {
+type GetUserForTokenParams struct {
 	TokenHash []byte
 	Scope     string
-	Expiry    time.Time
 }
 
-type GetTokenForUserRow struct {
+type GetUserForTokenRow struct {
 	ID                uuid.UUID
 	CreatedAt         time.Time
 	Name              string
@@ -50,9 +50,9 @@ type GetTokenForUserRow struct {
 	ProfilePictureUrl sql.NullString
 }
 
-func (q *Queries) GetTokenForUser(ctx context.Context, arg GetTokenForUserParams) (GetTokenForUserRow, error) {
-	row := q.db.QueryRowContext(ctx, getTokenForUser, arg.TokenHash, arg.Scope, arg.Expiry)
-	var i GetTokenForUserRow
+func (q *Queries) GetUserForToken(ctx context.Context, arg GetUserForTokenParams) (GetUserForTokenRow, error) {
+	row := q.db.QueryRowContext(ctx, getUserForToken, arg.TokenHash, arg.Scope)
+	var i GetUserForTokenRow
 	err := row.Scan(
 		&i.ID,
 		&i.CreatedAt,

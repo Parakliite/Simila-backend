@@ -67,7 +67,7 @@ func (app *application) authenticate(next http.Handler) http.Handler {
 			return
 		}
 
-		user, err := app.models.Users.GetForToken(r.Context(), data.ScopeAuthentication, token)
+		user, err := app.models.Users.GetUserForToken(r.Context(), data.ScopeAuthentication, token)
 		if err != nil {
 			switch {
 			case errors.Is(err, data.ErrRecordNotFound):

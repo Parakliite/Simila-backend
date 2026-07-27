@@ -7,6 +7,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/google/uuid"
 	"github.com/parakliite/simila/internal/data"
 	"github.com/parakliite/simila/internal/validator"
 )
@@ -63,9 +64,13 @@ func (app *application) loginHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// creates a new session id for each login
+	sessionID := uuid.New()
+
 	accessToken, err := app.models.Tokens.New(
 		r.Context(),
 		user.ID,
+		uuid.NullUUID{Valid: false},
 		accessTokenExpiryDuration,
 		data.ScopeAuthentication,
 	)
@@ -83,6 +88,7 @@ func (app *application) loginHandler(w http.ResponseWriter, r *http.Request) {
 	refreshToken, err := app.models.Tokens.New(
 		r.Context(),
 		user.ID,
+		uuid.NullUUID{UUID: sessionID, Valid: true},
 		refreshTokenExpiryDuration,
 		data.ScopeRefresh,
 	)
@@ -128,7 +134,7 @@ func (app *application) refreshHandler(w http.ResponseWriter, req *http.Request)
 	refreshTokenHash := hash[:]
 
 	// Get the user from the refresh token
-	userID, isRevoked, err := app.models.Tokens.GetUserFromToken(
+	userID, sessionID, err := app.models.Tokens.GetUserIDFromToken(
 		req.Context(),
 		data.ScopeRefresh,
 		refreshTokenHash)
@@ -142,15 +148,11 @@ func (app *application) refreshHandler(w http.ResponseWriter, req *http.Request)
 		return
 	}
 
-	if isRevoked {
-		app.invalidRefreshTokenResponse(w, req)
-		return
-	}
-
 	// create a new access token
 	accessToken, err := app.models.Tokens.New(
 		req.Context(),
 		userID,
+		uuid.NullUUID{Valid: false},
 		accessTokenExpiryDuration,
 		data.ScopeAuthentication,
 	)
@@ -175,6 +177,7 @@ func (app *application) refreshHandler(w http.ResponseWriter, req *http.Request)
 	newRefreshToken, err := app.models.Tokens.New(
 		req.Context(),
 		userID,
+		uuid.NullUUID{UUID: sessionID, Valid: true},
 		refreshTokenExpiryDuration,
 		data.ScopeRefresh,
 	)
