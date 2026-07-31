@@ -7,7 +7,7 @@ import (
 
 var (
 	errInvalidUserID = errors.New("an invalid user id was passed")
-	errUnexpected = errors.New("an unexpected error occurred")
+	errUnexpected    = errors.New("an unexpected error occurred")
 )
 
 func (app *application) logError(req *http.Request, err error) {

@@ -197,7 +197,7 @@ func (m MatchModel) CheckMatchExists(
 
 	return m.q.CheckMatchExists(ctx, database.CheckMatchExistsParams{
 		TargetUserID: userID,
-		OtherUserID: otherUserID,
+		OtherUserID:  otherUserID,
 	})
 }
 
