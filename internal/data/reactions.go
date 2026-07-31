@@ -99,7 +99,10 @@ func (r ReactionModel) UpsertReaction(ctx context.Context, reaction Reaction) (R
 	return toReactionWithDetails(row), nil
 }
 
-func (r ReactionModel) DeleteReaction(ctx context.Context, reactorUserID, ratingUserID, mediaID uuid.UUID) error {
+func (r ReactionModel) DeleteReaction(
+	ctx context.Context,
+	reactorUserID, ratingUserID, mediaID uuid.UUID,
+) error {
 	ctx, cancel := context.WithTimeout(ctx, 3*time.Second)
 	defer cancel()
 
@@ -119,7 +122,10 @@ func (r ReactionModel) DeleteReaction(ctx context.Context, reactorUserID, rating
 	return nil
 }
 
-func (r ReactionModel) GetReactionCountForRating(ctx context.Context, ratingUserID, mediaID uuid.UUID) (int64, error) {
+func (r ReactionModel) GetReactionCountForRating(
+	ctx context.Context,
+	ratingUserID, mediaID uuid.UUID,
+) (int64, error) {
 	ctx, cancel := context.WithTimeout(ctx, 3*time.Second)
 	defer cancel()
 

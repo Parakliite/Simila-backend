@@ -53,29 +53,29 @@ type TMDBSearchResult struct {
 
 // TODO: change this to use an anonymous/scoped struct instead
 // of the returned value from the db query method
-func (app *application) getMediaHandler(w http.ResponseWriter, r *http.Request) {
-	id, err := app.readIDParam(r)
+func (app *application) getMediaHandler(w http.ResponseWriter, req *http.Request) {
+	id, err := app.readIDParam(req)
 	if err != nil {
-		app.notFoundResponse(w, r)
+		app.notFoundResponse(w, req)
 		return
 	}
 
-	mediaType := r.URL.Query().Get("type")
+	mediaType := req.URL.Query().Get("type")
 	if mediaType != "movie" && mediaType != "tv" {
-		app.badRequestResponse(w, r, errors.New("type parameter must be 'movie' or 'tv'"))
+		app.badRequestResponse(w, req, errors.New("type parameter must be 'movie' or 'tv'"))
 		return
 	}
 
-	media, err := app.models.Movies.GetMedia(r.Context(), id, mediaType)
+	media, err := app.models.Movies.GetMedia(req.Context(), id, mediaType)
 	if err != nil {
 		if errors.Is(err, data.ErrRecordNotFound) {
-			media, err = app.fetchAndSaveMedia(r.Context(), id, mediaType)
+			media, err = app.fetchAndSaveMedia(req.Context(), id, mediaType)
 			if err != nil {
-				app.serverErrorResponse(w, r, err)
+				app.serverErrorResponse(w, req, err)
 				return
 			}
 		} else {
-			app.serverErrorResponse(w, r, err)
+			app.serverErrorResponse(w, req, err)
 			return
 		}
 	}
@@ -86,11 +86,15 @@ func (app *application) getMediaHandler(w http.ResponseWriter, r *http.Request) 
 
 	err = app.writeJSON(w, http.StatusOK, envelope{"media": media}, nil)
 	if err != nil {
-		app.serverErrorResponse(w, r, err)
+		app.serverErrorResponse(w, req, err)
 	}
 }
 
-func (app *application) fetchAndSaveMedia(ctx context.Context, tmdbID int32, mediaType string) (*data.Media, error) {
+func (app *application) fetchAndSaveMedia(
+	ctx context.Context,
+	tmdbID int32,
+	mediaType string,
+) (*data.Media, error) {
 	tmdbIDPath := strconv.FormatInt(int64(tmdbID), 10)
 	var path []string
 	switch mediaType {
@@ -108,7 +112,8 @@ func (app *application) fetchAndSaveMedia(ctx context.Context, tmdbID int32, med
 	}
 
 	client := &http.Client{Timeout: 5 * time.Second}
-	resp, err := client.Do(req) // #nosec G704 -- TMDB URL is built from a validated base URL, fixed path segments, and a numeric ID.
+	// #nosec G704 -- TMDB URL is built from a validated base URL, fixed path segments, and a numeric ID.
+	resp, err := client.Do(req)
 	if err != nil {
 		return nil, fmt.Errorf("failed to fetch from TMDB: %v", err)
 	}

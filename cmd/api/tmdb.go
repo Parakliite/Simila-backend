@@ -9,7 +9,11 @@ import (
 	"strings"
 )
 
-func (app *application) newTMDBRequest(ctx context.Context, path []string, query url.Values) (*http.Request, error) {
+func (app *application) newTMDBRequest(
+	ctx context.Context,
+	path []string,
+	query url.Values,
+) (*http.Request, error) {
 	endpoint, err := url.Parse(app.config.tmdbBaseURL)
 	if err != nil {
 		return nil, err

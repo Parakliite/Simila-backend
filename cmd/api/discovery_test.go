@@ -37,7 +37,7 @@ func getDiscoveryResponse(t *testing.T, app *application, user *data.User) ([]di
 	req = withUser(req, user)
 	rr := httptest.NewRecorder()
 
-	app.ListRandomMedia(rr, req)
+	app.listRandomMediaHandler(rr, req)
 
 	if rr.Code != http.StatusOK {
 		t.Fatalf("expected 200, got %d: %s", rr.Code, rr.Body.String())

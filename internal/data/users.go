@@ -14,13 +14,6 @@ import (
 	"golang.org/x/crypto/bcrypt"
 )
 
-var (
-	ErrDuplicateEmail = errors.New("duplicate email")
-	ErrEditConflict   = errors.New(
-		"unable to update the record due to an edit conflict, please try again",
-	)
-)
-
 // UserModel is a wrapper around the db connection pool
 type UserModel struct {
 	DB *sql.DB
@@ -199,6 +192,9 @@ func (m UserModel) UpdateUser(ctx context.Context, user *User) error {
 }
 
 func (m UserModel) GetUserForToken(ctx context.Context, tokenScope, tokenPlaintext string) (*User, error) {
+	ctx, cancel := context.WithTimeout(ctx, 3*time.Second)
+	defer cancel()
+
 	tokenHash := sha256.Sum256([]byte(tokenPlaintext))
 
 	row, err := m.q.GetUserForToken(ctx, database.GetUserForTokenParams{
@@ -229,8 +225,30 @@ func (m UserModel) GetUserForToken(ctx context.Context, tokenScope, tokenPlainte
 	return user, nil
 }
 
-func (m UserModel) RevokeAllTokensForSession(sessionID uuid.UUID, scope string) error {
-	return m.RevokeAllTokensForSession(sessionID, scope)
+func (m UserModel) GetAllUsers(ctx context.Context) ([]uuid.UUID, error) {
+	ctx, cancel := context.WithTimeout(ctx, 3*time.Second)
+	defer cancel()
+
+	users, err := m.q.GetAllUsers(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	return users, nil
+}
+
+func (m UserModel) RevokeAllTokensForSession(
+	ctx context.Context,
+	sessionID uuid.NullUUID,
+	scope string,
+) error {
+	ctx, cancel := context.WithTimeout(ctx, 3*time.Second)
+	defer cancel()
+
+	return m.q.RevokeAllTokensForSession(ctx, database.RevokeAllTokensForSessionParams{
+		SessionID: sessionID,
+		Scope:     scope,
+	})
 }
 
 func ValidateEmail(v *validator.Validator, email string) {

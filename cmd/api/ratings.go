@@ -11,73 +11,70 @@ import (
 	"github.com/parakliite/simila/internal/validator"
 )
 
-func (app *application) upsertRatingHandler(w http.ResponseWriter, r *http.Request) {
-	user := app.contextGetUser(r)
+func (app *application) upsertRatingHandler(w http.ResponseWriter, req *http.Request) {
+	user := app.contextGetUser(req)
 	var input struct {
 		MediaID     uuid.UUID  `json:"media_id"`
 		RatingValue float64    `json:"rating_value"`
 		WatchedDate *time.Time `json:"watched_date,omitempty"`
 	}
 
-	err := app.readJSON(w, r, &input)
+	err := app.readJSON(w, req, &input)
 	if err != nil {
-		app.badRequestResponse(w, r, err)
+		app.badRequestResponse(w, req, err)
 		return
 	}
 
 	v := validator.New()
 	if data.ValidateRatingValue(v, input.RatingValue); !v.Valid() {
-		app.failedValidationResponse(w, r, v.Errors)
+		app.failedValidationResponse(w, req, v.Errors)
 		return
 	}
 
-	rating, err := app.models.Ratings.UpsertUserRating(r.Context(), data.Rating{
+	rating, err := app.models.Ratings.UpsertUserRating(req.Context(), data.Rating{
 		MediaID:     input.MediaID,
 		UserID:      user.ID,
 		RatingValue: input.RatingValue,
 		WatchedDate: input.WatchedDate,
 	})
 	if err != nil {
-		app.serverErrorResponse(w, r, err)
+		app.serverErrorResponse(w, req, err)
 		return
 	}
 
 	err = app.writeJSON(w, 200, envelope{"rating": rating}, nil)
 	if err != nil {
-		app.serverErrorResponse(w, r, err)
+		app.serverErrorResponse(w, req, err)
 	}
 }
 
-func (app *application) deleteRatingHandler(w http.ResponseWriter, r *http.Request) {
-	user := app.contextGetUser(r)
+func (app *application) deleteRatingHandler(w http.ResponseWriter, req *http.Request) {
+	user := app.contextGetUser(req)
 
-	mediaID, err := uuid.Parse(r.PathValue("media_id"))
+	mediaID, err := uuid.Parse(req.PathValue("media_id"))
 	if err != nil {
-		app.badRequestResponse(w, r, fmt.Errorf("invalid media_id"))
+		app.badRequestResponse(w, req, fmt.Errorf("invalid media_id"))
 		return
 	}
 
-	err = app.models.Ratings.DeleteUserRating(r.Context(), user.ID, mediaID)
+	err = app.models.Ratings.DeleteUserRating(req.Context(), user.ID, mediaID)
 	if err != nil {
 		switch {
 		case errors.Is(err, data.ErrRecordNotFound):
-			app.notFoundResponse(w, r)
+			app.notFoundResponse(w, req)
 		default:
-			app.serverErrorResponse(w, r, err)
+			app.serverErrorResponse(w, req, err)
 		}
 		return
 	}
 
-	err = app.writeJSON(w, 204, nil, nil)
-	if err != nil {
-		app.serverErrorResponse(w, r, err)
-	}
+	w.WriteHeader(http.StatusNoContent)
 }
 
-func (app *application) listRatingsHandler(w http.ResponseWriter, r *http.Request) {
-	user := app.contextGetUser(r)
+func (app *application) listRatingsHandler(w http.ResponseWriter, req *http.Request) {
+	user := app.contextGetUser(req)
 
-	qs := r.URL.Query()
+	qs := req.URL.Query()
 
 	limit := app.readInt(qs, "limit", 20)
 	if limit < 1 || limit > 70 {
@@ -93,20 +90,20 @@ func (app *application) listRatingsHandler(w http.ResponseWriter, r *http.Reques
 		var err error
 		cursorMediaID, cursorCreatedAt, err = app.decodeCursor(cursorStr)
 		if err != nil {
-			app.badRequestResponse(w, r, err)
+			app.badRequestResponse(w, req, err)
 			return
 		}
 	}
 
 	ratings, err := app.models.Ratings.GetUsersRatings(
-		r.Context(),
+		req.Context(),
 		cursorCreatedAt,
 		limit+1,
 		user.ID,
 		cursorMediaID,
 	)
 	if err != nil {
-		app.serverErrorResponse(w, r, err)
+		app.serverErrorResponse(w, req, err)
 		return
 	}
 
@@ -123,44 +120,44 @@ func (app *application) listRatingsHandler(w http.ResponseWriter, r *http.Reques
 		"next_cursor": nextCursor,
 	}, nil)
 	if err != nil {
-		app.serverErrorResponse(w, r, err)
+		app.serverErrorResponse(w, req, err)
 	}
 }
 
-func (app *application) getRatingHandler(w http.ResponseWriter, r *http.Request) {
-	user := app.contextGetUser(r)
+func (app *application) getRatingHandler(w http.ResponseWriter, req *http.Request) {
+	user := app.contextGetUser(req)
 
-	mediaID, err := uuid.Parse(r.PathValue("media_id"))
+	mediaID, err := uuid.Parse(req.PathValue("media_id"))
 	if err != nil {
-		app.badRequestResponse(w, r, fmt.Errorf("invalid media_id"))
+		app.badRequestResponse(w, req, fmt.Errorf("invalid media_id"))
 		return
 	}
 
-	rating, err := app.models.Ratings.GetUsersRating(r.Context(), user.ID, mediaID)
+	rating, err := app.models.Ratings.GetUsersRating(req.Context(), user.ID, mediaID)
 	if err != nil {
 		switch {
 		case errors.Is(err, data.ErrRecordNotFound):
-			app.notFoundResponse(w, r)
+			app.notFoundResponse(w, req)
 		default:
-			app.serverErrorResponse(w, r, err)
+			app.serverErrorResponse(w, req, err)
 		}
 		return
 	}
 
 	err = app.writeJSON(w, http.StatusOK, envelope{"rating": rating}, nil)
 	if err != nil {
-		app.serverErrorResponse(w, r, err)
+		app.serverErrorResponse(w, req, err)
 	}
 }
 
-func (app *application) listRatingsForMedia(w http.ResponseWriter, r *http.Request) {
-	mediaID, err := uuid.Parse(r.PathValue("media_id"))
+func (app *application) listRatingsForMedia(w http.ResponseWriter, req *http.Request) {
+	mediaID, err := uuid.Parse(req.PathValue("media_id"))
 	if err != nil {
-		app.badRequestResponse(w, r, fmt.Errorf("invalid media_id"))
+		app.badRequestResponse(w, req, fmt.Errorf("invalid media_id"))
 		return
 	}
 
-	qs := r.URL.Query()
+	qs := req.URL.Query()
 
 	limit := app.readInt(qs, "limit", 20)
 	if limit < 1 || limit > 70 {
@@ -176,20 +173,20 @@ func (app *application) listRatingsForMedia(w http.ResponseWriter, r *http.Reque
 		var err error
 		cursorUserID, cursorCreatedAt, err = app.decodeCursor(cursorStr)
 		if err != nil {
-			app.badRequestResponse(w, r, err)
+			app.badRequestResponse(w, req, err)
 			return
 		}
 	}
 
 	ratings, err := app.models.Ratings.GetAllRatingsForSingleMedia(
-		r.Context(),
+		req.Context(),
 		cursorCreatedAt,
 		mediaID,
 		cursorUserID,
 		limit+1,
 	)
 	if err != nil {
-		app.serverErrorResponse(w, r, err)
+		app.serverErrorResponse(w, req, err)
 		return
 	}
 
@@ -206,6 +203,6 @@ func (app *application) listRatingsForMedia(w http.ResponseWriter, r *http.Reque
 		"next_cursor": nextCursor,
 	}, nil)
 	if err != nil {
-		app.serverErrorResponse(w, r, err)
+		app.serverErrorResponse(w, req, err)
 	}
 }

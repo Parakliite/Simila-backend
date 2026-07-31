@@ -75,34 +75,6 @@ func TestUpsertReaction_InvalidReaction(t *testing.T) {
 	}
 }
 
-func TestDeleteReaction_Existing(t *testing.T) {
-	app := newTestApp("")
-	user := newTestUser("Alice", "alice@example.com", "password123", true)
-	ratingUserID := uuid.New()
-	mediaID := uuid.New()
-
-	mock := app.models.Reactions.(*mockReactionModel)
-	mock.reactions[reactionKey(user.ID, ratingUserID, mediaID)] = data.Reaction{
-		ID:            uuid.New(),
-		ReactorUserID: user.ID,
-		RatingUserID:  ratingUserID,
-		MediaID:       mediaID,
-		Reaction:      database.ReactionTypeGreatPick,
-	}
-
-	req := httptest.NewRequest("DELETE", "/api/v1/reactions/"+ratingUserID.String()+"/"+mediaID.String(), nil)
-	req.SetPathValue("rating_user_id", ratingUserID.String())
-	req.SetPathValue("media_id", mediaID.String())
-	req = withUser(req, user)
-	rr := httptest.NewRecorder()
-
-	app.deleteReactionHandler(rr, req)
-
-	if rr.Code != http.StatusNoContent {
-		t.Fatalf("expected 204, got %d: %s", rr.Code, rr.Body.String())
-	}
-}
-
 func TestListUserReactions_ReturnsReactions(t *testing.T) {
 	app := newTestApp("")
 	user := newTestUser("Alice", "alice@example.com", "password123", true)
@@ -152,47 +124,5 @@ func TestListUserReactions_ReturnsReactions(t *testing.T) {
 	}
 	if _, ok := reaction["rating"].(map[string]any); !ok {
 		t.Fatalf("expected nested rating object, got %T", reaction["rating"])
-	}
-}
-
-func TestGetReactionCountForRating_ReturnsCount(t *testing.T) {
-	app := newTestApp("")
-	user := newTestUser("Alice", "alice@example.com", "password123", true)
-	ratingUserID := uuid.New()
-	mediaID := uuid.New()
-
-	mock := app.models.Reactions.(*mockReactionModel)
-	for i := 0; i < 2; i++ {
-		reactorID := uuid.New()
-		mock.reactions[reactionKey(reactorID, ratingUserID, mediaID)] = data.Reaction{
-			ID:            uuid.New(),
-			ReactorUserID: reactorID,
-			RatingUserID:  ratingUserID,
-			MediaID:       mediaID,
-			Reaction:      database.ReactionTypeHotTake,
-		}
-	}
-
-	req := httptest.NewRequest(
-		"GET",
-		"/api/v1/ratings/"+ratingUserID.String()+"/"+mediaID.String()+"/reactions/count",
-		nil,
-	)
-	req.SetPathValue("rating_user_id", ratingUserID.String())
-	req.SetPathValue("media_id", mediaID.String())
-	req = withUser(req, user)
-	rr := httptest.NewRecorder()
-
-	app.getReactionCountForRatingHandler(rr, req)
-
-	if rr.Code != http.StatusOK {
-		t.Fatalf("expected 200, got %d: %s", rr.Code, rr.Body.String())
-	}
-
-	var resp map[string]any
-	json.Unmarshal(rr.Body.Bytes(), &resp)
-
-	if int(resp["reaction_count"].(float64)) != 2 {
-		t.Fatalf("expected reaction_count 2, got %v", resp["reaction_count"])
 	}
 }

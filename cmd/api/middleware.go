@@ -15,7 +15,7 @@ import (
 )
 
 func (app *application) recoverPanic(next http.Handler) http.Handler {
-	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	return http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
 		// Create a deferred function (which will always be run in the event of a panic
 		// as Go unwinds the stack).
 		defer func() {
@@ -32,30 +32,30 @@ func (app *application) recoverPanic(next http.Handler) http.Handler {
 				// serverErrorResponse() helper. In turn, this will log the error using
 				// our custom Logger type at the ERROR level and send the client a 500
 				// Internal Server Error response.
-				app.serverErrorResponse(w, r, fmt.Errorf("%s", err))
+				app.serverErrorResponse(w, req, fmt.Errorf("%s", err))
 			}
 		}()
-		next.ServeHTTP(w, r)
+		next.ServeHTTP(w, req)
 	})
 }
 
 func (app *application) authenticate(next http.Handler) http.Handler {
-	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	return http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
 		// Add the "Vary: Authorization" header to the response. This indicates to any
 		// caches that the response may vary based on the value of the Authorization
 		// header in the request.
 		// w.Header().Add("Vary", "Authorization")
 
-		authorizationHeader := r.Header.Get("Authorization")
+		authorizationHeader := req.Header.Get("Authorization")
 
 		if authorizationHeader == "" {
-			app.invalidAuthenticationTokenResponse(w, r)
+			app.invalidAuthenticationTokenResponse(w, req)
 			return
 		}
 
 		headerParts := strings.Split(authorizationHeader, " ")
 		if len(headerParts) != 2 || headerParts[0] != "Bearer" {
-			app.invalidAuthenticationTokenResponse(w, r)
+			app.invalidAuthenticationTokenResponse(w, req)
 			return
 		}
 
@@ -63,47 +63,47 @@ func (app *application) authenticate(next http.Handler) http.Handler {
 		v := validator.New()
 
 		if data.ValidateTokenPlaintext(v, token); !v.Valid() {
-			app.invalidAuthenticationTokenResponse(w, r)
+			app.invalidAuthenticationTokenResponse(w, req)
 			return
 		}
 
-		user, err := app.models.Users.GetUserForToken(r.Context(), data.ScopeAuthentication, token)
+		user, err := app.models.Users.GetUserForToken(req.Context(), data.ScopeAuthentication, token)
 		if err != nil {
 			switch {
 			case errors.Is(err, data.ErrRecordNotFound):
-				app.invalidAuthenticationTokenResponse(w, r)
+				app.invalidAuthenticationTokenResponse(w, req)
 			default:
-				app.serverErrorResponse(w, r, err)
+				app.serverErrorResponse(w, req, err)
 			}
 			return
 		}
 
-		r = app.contextSetUser(r, user)
+		req = app.contextSetUser(req, user)
 
-		next.ServeHTTP(w, r)
+		next.ServeHTTP(w, req)
 	})
 }
 
 func (app *application) requireActivatedUser(next http.HandlerFunc) http.HandlerFunc {
-	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		user := app.contextGetUser(r)
+	return http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
+		user := app.contextGetUser(req)
 
 		if !user.Activated {
-			app.inactiveAccountResponse(w, r)
+			app.inactiveAccountResponse(w, req)
 			return
 		}
 
-		next.ServeHTTP(w, r)
+		next.ServeHTTP(w, req)
 	})
 }
 
 func (app *application) enableCORS(next http.Handler) http.Handler {
-	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	return http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
 		w.Header().Add("Vary", "Origin") // to prevent browser caching
 
 		w.Header().Add("Vary", "Access-Control-Request-Method")
 
-		origin := r.Header.Get("Origin")
+		origin := req.Header.Get("Origin")
 
 		if origin != "" {
 			for i := range app.config.cors.trustedOrigins {
@@ -112,7 +112,7 @@ func (app *application) enableCORS(next http.Handler) http.Handler {
 					w.Header().Set("Access-Control-Allow-Credentials", "true")
 
 					// if pre-flight request
-					if r.Method == http.MethodOptions && r.Header.Get("Access-Control-Request-Method") != "" {
+					if req.Method == http.MethodOptions && req.Header.Get("Access-Control-Request-Method") != "" {
 						w.Header().Set("Access-Control-Allow-Method", "OPTIONS, PUT, PATCH, DELETE")
 						w.Header().Set("", "Authorization, Content-Type")
 
@@ -125,7 +125,7 @@ func (app *application) enableCORS(next http.Handler) http.Handler {
 			}
 		}
 
-		next.ServeHTTP(w, r)
+		next.ServeHTTP(w, req)
 	})
 }
 
@@ -135,12 +135,12 @@ func (app *application) metrics(next http.Handler) http.Handler {
 	totalProcessingTimeMicroseconds := expvar.NewInt("total_processing_time_µs")
 	totalResponsesSentByStatus := expvar.NewMap("total_responses_sent_by_status")
 
-	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	return http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
 		start := time.Now()
 
 		totalRequestsReceived.Add(1)
 
-		metrics := httpsnoop.CaptureMetrics(next, w, r)
+		metrics := httpsnoop.CaptureMetrics(next, w, req)
 
 		totalResponsesSent.Add(1)
 

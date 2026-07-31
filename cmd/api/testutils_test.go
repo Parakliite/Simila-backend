@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"crypto/sha256"
+	"database/sql"
 	"fmt"
 	"io"
 	"net/http"
@@ -105,7 +106,10 @@ func (m *mockUserModel) UpdateUser(ctx context.Context, user *data.User) error {
 	return nil
 }
 
-func (m *mockUserModel) GetUserForToken(ctx context.Context, tokenScope, tokenPlaintext string) (*data.User, error) {
+func (m *mockUserModel) GetUserForToken(
+	ctx context.Context,
+	tokenScope, tokenPlaintext string,
+) (*data.User, error) {
 	key := tokenScope + ":" + tokenPlaintext
 	user, ok := m.forToken[key]
 	if !ok {
@@ -145,7 +149,24 @@ func (m *mockUserModel) SearchUsers(ctx context.Context, query string, limit int
 	return users, nil
 }
 
-func (m *mockUserModel) RevokeAllTokensForSession(sessionID uuid.UUID, scope string) error {
+func (m *mockUserModel) GetAllUsers(ctx context.Context) ([]uuid.UUID, error) {
+	ids := make([]uuid.UUID, 0, len(m.users))
+	for id := range m.users {
+		ids = append(ids, id)
+	}
+
+	sort.Slice(ids, func(i, j int) bool {
+		return ids[i].String() < ids[j].String()
+	})
+
+	return ids, nil
+}
+
+func (m *mockUserModel) RevokeAllTokensForSession(
+	ctx context.Context,
+	sessionID uuid.NullUUID,
+	scope string,
+) error {
 	return nil
 }
 
@@ -164,7 +185,13 @@ func newMockTokenModel() *mockTokenModel {
 	}
 }
 
-func (m *mockTokenModel) New(ctx context.Context, userID uuid.UUID, sessionID uuid.NullUUID, ttl time.Duration, scope string) (*data.Token, error) {
+func (m *mockTokenModel) New(
+	ctx context.Context,
+	userID uuid.UUID,
+	sessionID uuid.NullUUID,
+	ttl time.Duration,
+	scope string,
+) (*data.Token, error) {
 	m.counter++
 	plaintext := fmt.Sprintf("%026d", m.counter)
 	hash := sha256.Sum256([]byte(plaintext))
@@ -186,7 +213,11 @@ func (m *mockTokenModel) Insert(ctx context.Context, token *data.Token) error {
 	return nil
 }
 
-func (m *mockTokenModel) GetUserIDFromToken(ctx context.Context, scope string, tokenHash []byte) (uuid.UUID, uuid.UUID, error) {
+func (m *mockTokenModel) GetUserIDFromToken(
+	ctx context.Context,
+	scope string,
+	tokenHash []byte,
+) (uuid.UUID, uuid.UUID, error) {
 	for userID, tokens := range m.tokens {
 		for _, token := range tokens {
 			if token.Scope == scope && string(token.Hash) == string(tokenHash) {
@@ -298,7 +329,10 @@ func (m *mockRatingModel) DeleteUserRating(ctx context.Context, userID, mediaID 
 	return nil
 }
 
-func (m *mockRatingModel) GetUsersRating(ctx context.Context, userID, mediaID uuid.UUID) (data.UserRating, error) {
+func (m *mockRatingModel) GetUsersRating(
+	ctx context.Context,
+	userID, mediaID uuid.UUID,
+) (data.UserRating, error) {
 	key := ratingKey(userID, mediaID)
 	ur, ok := m.ratings[key]
 	if !ok {
@@ -307,7 +341,12 @@ func (m *mockRatingModel) GetUsersRating(ctx context.Context, userID, mediaID uu
 	return translateMockUserRatingOutbound(ur), nil
 }
 
-func (m *mockRatingModel) GetUsersRatings(ctx context.Context, createdAt time.Time, limit int32, userID, mediaID uuid.UUID) ([]data.UserRating, error) {
+func (m *mockRatingModel) GetUsersRatings(
+	ctx context.Context,
+	createdAt time.Time,
+	limit int32,
+	userID, mediaID uuid.UUID,
+) ([]data.UserRating, error) {
 	var result []data.UserRating
 	for _, ur := range m.ratings {
 		if ur.Rating.UserID == userID {
@@ -325,7 +364,12 @@ func (m *mockRatingModel) GetUsersRatings(ctx context.Context, createdAt time.Ti
 	return result, nil
 }
 
-func (m *mockRatingModel) GetAllRatingsForSingleMedia(ctx context.Context, createdAt time.Time, mediaID, userID uuid.UUID, limit int32) ([]data.UserRating, error) {
+func (m *mockRatingModel) GetAllRatingsForSingleMedia(
+	ctx context.Context,
+	createdAt time.Time,
+	mediaID, userID uuid.UUID,
+	limit int32,
+) ([]data.UserRating, error) {
 	var result []data.UserRating
 	for _, ur := range m.ratings {
 		if ur.Rating.MediaID == mediaID {
@@ -343,7 +387,11 @@ func (m *mockRatingModel) GetAllRatingsForSingleMedia(ctx context.Context, creat
 	return result, nil
 }
 
-func (m *mockRatingModel) GetRandomMedia(ctx context.Context, userID uuid.UUID, limit int32) ([]data.Media, error) {
+func (m *mockRatingModel) GetRandomMedia(
+	ctx context.Context,
+	userID uuid.UUID,
+	limit int32,
+) ([]data.Media, error) {
 	var result []data.Media
 	for _, media := range m.randomMedia {
 		if _, ok := m.ratings[ratingKey(userID, media.ID)]; ok {
@@ -360,18 +408,90 @@ func (m *mockRatingModel) GetRandomMedia(ctx context.Context, userID uuid.UUID, 
 
 // --- mock match model ---
 
-type mockMatchModel struct{}
-
-func (m *mockMatchModel) GetSimilarities(ctx context.Context, targetUserID uuid.UUID, ratings []data.Rating, indexMap map[uuid.UUID]int) (map[uuid.UUID]float64, error) {
-	return make(map[uuid.UUID]float64), nil
+type mockMatchModel struct {
+	matches          []data.Match
+	getMatchesErr    error
+	matchExists      bool
+	checkMatchErr    error
+	lastTargetUserID uuid.UUID
+	lastLimit        int32
+	lastCursorUserID uuid.NullUUID
+	lastCursorScore  sql.NullFloat64
 }
 
-func (m *mockMatchModel) MapMediaToIndex() (map[uuid.UUID]int, error) {
+func (m *mockMatchModel) CalculateSimilarities(
+	ctx context.Context,
+	targetUserID uuid.UUID,
+	ratings []data.Rating,
+	indexMap map[uuid.UUID]int,
+) error {
+	return nil
+}
+
+func (m *mockMatchModel) MapMediaToIndex(ctx context.Context) (map[uuid.UUID]int, error) {
 	return make(map[uuid.UUID]int), nil
 }
 
-func (m *mockMatchModel) GetAllUserRatingsForMatches(ctx context.Context, userID uuid.UUID) ([]data.Rating, error) {
+func (m *mockMatchModel) GetAllUserRatingsForMatches(
+	ctx context.Context,
+	userID uuid.UUID,
+) ([]data.Rating, error) {
 	return []data.Rating{}, nil
+}
+
+func (m *mockMatchModel) GetUserMatches(
+	ctx context.Context,
+	targetUserID uuid.UUID,
+	limit int32,
+	cursorOtherUserID uuid.NullUUID,
+	cursorScore sql.NullFloat64,
+	cursorSharedMediaCount sql.NullInt32,
+	cursorLastRecalculatedAt sql.NullTime,
+) ([]data.Match, error) {
+	m.lastTargetUserID = targetUserID
+	m.lastLimit = limit
+	m.lastCursorUserID = cursorOtherUserID
+	m.lastCursorScore = cursorScore
+	if m.getMatchesErr != nil {
+		return nil, m.getMatchesErr
+	}
+	return m.matches, nil
+}
+
+func (m *mockMatchModel) CheckMatchExists(
+	ctx context.Context,
+	userID, otherUserID uuid.UUID,
+) (bool, error) {
+	if m.checkMatchErr != nil {
+		return false, m.checkMatchErr
+	}
+	return m.matchExists, nil
+}
+
+// --- mock recommendation model ---
+
+type mockRecommendationModel struct {
+	recommendations  data.Recommendations
+	err              error
+	lastUserID       uuid.UUID
+	lastTargetUserID uuid.UUID
+	lastThreshold    int32
+	lastLimit        int32
+}
+
+func (m *mockRecommendationModel) GetUserRecommendations(
+	ctx context.Context,
+	userID, targetUserID uuid.UUID,
+	threshold, limit int32,
+) (data.Recommendations, error) {
+	m.lastUserID = userID
+	m.lastTargetUserID = targetUserID
+	m.lastThreshold = threshold
+	m.lastLimit = limit
+	if m.err != nil {
+		return data.Recommendations{}, m.err
+	}
+	return m.recommendations, nil
 }
 
 // --- mock reaction model ---
@@ -409,7 +529,10 @@ func mockReactionWithDetails(reaction data.Reaction) data.ReactionWithDetails {
 	}
 }
 
-func (m *mockReactionModel) UpsertReaction(ctx context.Context, reaction data.Reaction) (data.ReactionWithDetails, error) {
+func (m *mockReactionModel) UpsertReaction(
+	ctx context.Context,
+	reaction data.Reaction,
+) (data.ReactionWithDetails, error) {
 	now := time.Now()
 	key := reactionKey(reaction.ReactorUserID, reaction.RatingUserID, reaction.MediaID)
 	if existing, ok := m.reactions[key]; ok {
@@ -424,7 +547,10 @@ func (m *mockReactionModel) UpsertReaction(ctx context.Context, reaction data.Re
 	return mockReactionWithDetails(reaction), nil
 }
 
-func (m *mockReactionModel) DeleteReaction(ctx context.Context, reactorUserID, ratingUserID, mediaID uuid.UUID) error {
+func (m *mockReactionModel) DeleteReaction(
+	ctx context.Context,
+	reactorUserID, ratingUserID, mediaID uuid.UUID,
+) error {
 	key := reactionKey(reactorUserID, ratingUserID, mediaID)
 	if _, ok := m.reactions[key]; !ok {
 		return data.ErrRecordNotFound
@@ -433,7 +559,10 @@ func (m *mockReactionModel) DeleteReaction(ctx context.Context, reactorUserID, r
 	return nil
 }
 
-func (m *mockReactionModel) GetReactionCountForRating(ctx context.Context, ratingUserID, mediaID uuid.UUID) (int64, error) {
+func (m *mockReactionModel) GetReactionCountForRating(
+	ctx context.Context,
+	ratingUserID, mediaID uuid.UUID,
+) (int64, error) {
 	var count int64
 	for _, reaction := range m.reactions {
 		if reaction.RatingUserID == ratingUserID && reaction.MediaID == mediaID {
@@ -499,7 +628,10 @@ func watchlistKey(userID, mediaID uuid.UUID) string {
 	return userID.String() + ":" + mediaID.String()
 }
 
-func (m *mockWatchlistModel) InsertMediaToWatchlist(ctx context.Context, watchlist data.Watchlist) (data.Watchlist, error) {
+func (m *mockWatchlistModel) InsertMediaToWatchlist(
+	ctx context.Context,
+	watchlist data.Watchlist,
+) (data.Watchlist, error) {
 	now := time.Now()
 	watchlist.CreatedAt = now
 	watchlist.Status = string(database.StatusTypeNotWatched)
@@ -598,7 +730,10 @@ func discoveryKey(userID, mediaID uuid.UUID) string {
 	return userID.String() + ":" + mediaID.String()
 }
 
-func (m *mockDiscoveryModel) GetDiscoveryHistoryExpiry(ctx context.Context, userID, mediaID uuid.UUID) (time.Time, error) {
+func (m *mockDiscoveryModel) GetDiscoveryHistoryExpiry(
+	ctx context.Context,
+	userID, mediaID uuid.UUID,
+) (time.Time, error) {
 	expiry, ok := m.history[discoveryKey(userID, mediaID)]
 	if !ok {
 		return time.Time{}, data.ErrRecordNotFound
@@ -607,7 +742,11 @@ func (m *mockDiscoveryModel) GetDiscoveryHistoryExpiry(ctx context.Context, user
 	return expiry, nil
 }
 
-func (m *mockDiscoveryModel) SetDiscoveryHistoryExpiry(ctx context.Context, userID, mediaID uuid.UUID, eligibleAt time.Time) error {
+func (m *mockDiscoveryModel) SetDiscoveryHistoryExpiry(
+	ctx context.Context,
+	userID, mediaID uuid.UUID,
+	eligibleAt time.Time,
+) error {
 	m.history[discoveryKey(userID, mediaID)] = eligibleAt
 	return nil
 }
@@ -622,14 +761,15 @@ func newTestApp(tmdbURL string) *application {
 		},
 		logger: jsonlog.New(io.Discard, jsonlog.LevelOff),
 		models: data.Models{
-			Movies:    newMockMediaModel(),
-			Users:     newMockUserModel(),
-			Tokens:    newMockTokenModel(),
-			Ratings:   newMockRatingModel(),
-			Matches:   &mockMatchModel{},
-			Reactions: newMockReactionModel(),
-			Watchlist: newMockWatchlistModel(),
-			Discovery: newMockDiscoveryModel(),
+			Movies:          newMockMediaModel(),
+			Users:           newMockUserModel(),
+			Tokens:          newMockTokenModel(),
+			Ratings:         newMockRatingModel(),
+			Matches:         &mockMatchModel{},
+			Reactions:       newMockReactionModel(),
+			Watchlist:       newMockWatchlistModel(),
+			Discovery:       newMockDiscoveryModel(),
+			Recommendations: &mockRecommendationModel{},
 		},
 	}
 }
@@ -654,7 +794,7 @@ func seedUser(app *application, user *data.User) {
 	m.byEmail[user.Email] = user
 }
 
-func withUser(r *http.Request, user *data.User) *http.Request {
-	ctx := context.WithValue(r.Context(), userContextKey, user)
-	return r.WithContext(ctx)
+func withUser(req *http.Request, user *data.User) *http.Request {
+	ctx := context.WithValue(req.Context(), userContextKey, user)
+	return req.WithContext(ctx)
 }

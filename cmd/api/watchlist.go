@@ -12,8 +12,8 @@ import (
 	"github.com/parakliite/simila/internal/validator"
 )
 
-func (app *application) insertToWatchlistHandler(w http.ResponseWriter, r *http.Request) {
-	user := app.contextGetUser(r)
+func (app *application) insertToWatchlistHandler(w http.ResponseWriter, req *http.Request) {
+	user := app.contextGetUser(req)
 
 	var input struct {
 		MediaID       uuid.UUID  `json:"media_id"`
@@ -21,9 +21,9 @@ func (app *application) insertToWatchlistHandler(w http.ResponseWriter, r *http.
 		SourceMatchID *uuid.UUID `json:"source_match_id,omitempty"`
 	}
 
-	err := app.readJSON(w, r, &input)
+	err := app.readJSON(w, req, &input)
 	if err != nil {
-		app.badRequestResponse(w, r, err)
+		app.badRequestResponse(w, req, err)
 		return
 	}
 
@@ -39,33 +39,33 @@ func (app *application) insertToWatchlistHandler(w http.ResponseWriter, r *http.
 		v.AddError("source_match_id", "must not be provided when source is self")
 	}
 	if !v.Valid() {
-		app.failedValidationResponse(w, r, v.Errors)
+		app.failedValidationResponse(w, req, v.Errors)
 		return
 	}
 
-	watchlist, err := app.models.Watchlist.InsertMediaToWatchlist(r.Context(), data.Watchlist{
+	watchlist, err := app.models.Watchlist.InsertMediaToWatchlist(req.Context(), data.Watchlist{
 		UserID:        user.ID,
 		MediaID:       input.MediaID,
 		Source:        input.Source,
 		SourceMatchID: input.SourceMatchID,
 	})
 	if err != nil {
-		app.serverErrorResponse(w, r, err)
+		app.serverErrorResponse(w, req, err)
 		return
 	}
 
 	err = app.writeJSON(w, http.StatusOK, envelope{"watchlist": watchlist}, nil)
 	if err != nil {
-		app.serverErrorResponse(w, r, err)
+		app.serverErrorResponse(w, req, err)
 	}
 }
 
-func (app *application) updateWatchlistStatusHandler(w http.ResponseWriter, r *http.Request) {
-	user := app.contextGetUser(r)
+func (app *application) updateWatchlistStatusHandler(w http.ResponseWriter, req *http.Request) {
+	user := app.contextGetUser(req)
 
-	mediaID, err := uuid.Parse(r.PathValue("media_id"))
+	mediaID, err := uuid.Parse(req.PathValue("media_id"))
 	if err != nil {
-		app.badRequestResponse(w, r, fmt.Errorf("invalid media_id"))
+		app.badRequestResponse(w, req, fmt.Errorf("invalid media_id"))
 		return
 	}
 
@@ -73,66 +73,68 @@ func (app *application) updateWatchlistStatusHandler(w http.ResponseWriter, r *h
 		Status string `json:"status"`
 	}
 
-	err = app.readJSON(w, r, &input)
+	err = app.readJSON(w, req, &input)
 	if err != nil {
-		app.badRequestResponse(w, r, err)
+		app.badRequestResponse(w, req, err)
 		return
 	}
 
 	v := validator.New()
 	data.ValidateWatchlistStatus(v, input.Status)
 	if !v.Valid() {
-		app.failedValidationResponse(w, r, v.Errors)
+		app.failedValidationResponse(w, req, v.Errors)
 		return
 	}
 
-	watchlist, err := app.models.Watchlist.UpdateWatchlistItemStatus(r.Context(), user.ID, mediaID, input.Status)
+	watchlist, err := app.models.Watchlist.UpdateWatchlistItemStatus(
+		req.Context(),
+		user.ID,
+		mediaID,
+		input.Status,
+	)
 	if err != nil {
 		switch {
 		case errors.Is(err, data.ErrRecordNotFound):
-			app.notFoundResponse(w, r)
+			app.notFoundResponse(w, req)
 		default:
-			app.serverErrorResponse(w, r, err)
+			app.serverErrorResponse(w, req, err)
 		}
 		return
 	}
 
 	err = app.writeJSON(w, http.StatusOK, envelope{"watchlist": watchlist}, nil)
 	if err != nil {
-		app.serverErrorResponse(w, r, err)
+		app.serverErrorResponse(w, req, err)
 	}
 }
 
-func (app *application) deleteWatchlistItemHandler(w http.ResponseWriter, r *http.Request) {
-	user := app.contextGetUser(r)
+func (app *application) deleteWatchlistItemHandler(w http.ResponseWriter, req *http.Request) {
+	user := app.contextGetUser(req)
 
-	mediaID, err := uuid.Parse(r.PathValue("media_id"))
+	mediaID, err := uuid.Parse(req.PathValue("media_id"))
 	if err != nil {
-		app.badRequestResponse(w, r, fmt.Errorf("invalid media_id"))
+		app.badRequestResponse(w, req, fmt.Errorf("invalid media_id"))
 		return
 	}
 
-	err = app.models.Watchlist.DeleteMediaFromWatchlist(r.Context(), user.ID, mediaID)
+	err = app.models.Watchlist.DeleteMediaFromWatchlist(req.Context(), user.ID, mediaID)
 	if err != nil {
 		switch {
 		case errors.Is(err, data.ErrRecordNotFound):
-			app.notFoundResponse(w, r)
+			app.notFoundResponse(w, req)
 		default:
-			app.serverErrorResponse(w, r, err)
+			app.serverErrorResponse(w, req, err)
 		}
 		return
 	}
 
-	err = app.writeJSON(w, http.StatusNoContent, nil, nil)
-	if err != nil {
-		app.serverErrorResponse(w, r, err)
-	}
+	w.WriteHeader(http.StatusNoContent)
 }
 
-func (app *application) listWatchlistItemsHandler(w http.ResponseWriter, r *http.Request) {
-	user := app.contextGetUser(r)
+func (app *application) listWatchlistItemsHandler(w http.ResponseWriter, req *http.Request) {
+	user := app.contextGetUser(req)
 
-	qs := r.URL.Query()
+	qs := req.URL.Query()
 	limit := app.readInt(qs, "limit", 20)
 	if limit < 1 || limit > 70 {
 		limit = 20
@@ -148,13 +150,13 @@ func (app *application) listWatchlistItemsHandler(w http.ResponseWriter, r *http
 		var err error
 		cursorMediaID, cursorCreatedAt, err = app.decodeCursor(cursorStr)
 		if err != nil {
-			app.badRequestResponse(w, r, err)
+			app.badRequestResponse(w, req, err)
 			return
 		}
 	}
 
 	items, err := app.models.Watchlist.GetAllItemsInWatchlist(
-		r.Context(),
+		req.Context(),
 		cursorCreatedAt,
 		limit+1,
 		mediaStatus,
@@ -162,7 +164,7 @@ func (app *application) listWatchlistItemsHandler(w http.ResponseWriter, r *http
 		cursorMediaID,
 	)
 	if err != nil {
-		app.serverErrorResponse(w, r, err)
+		app.serverErrorResponse(w, req, err)
 		return
 	}
 
@@ -179,6 +181,6 @@ func (app *application) listWatchlistItemsHandler(w http.ResponseWriter, r *http
 		"next_cursor":     nextCursor,
 	}, nil)
 	if err != nil {
-		app.serverErrorResponse(w, r, err)
+		app.serverErrorResponse(w, req, err)
 	}
 }

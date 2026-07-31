@@ -8,7 +8,13 @@ import (
 	"github.com/google/uuid"
 )
 
-var ErrRecordNotFound = errors.New("record not found")
+var (
+	ErrRecordNotFound = errors.New("record not found")
+	ErrDuplicateEmail = errors.New("duplicate email")
+	ErrEditConflict   = errors.New(
+		"unable to update the record due to an edit conflict, please try again",
+	)
+)
 
 func nullTimeToPtr(nt sql.NullTime) *time.Time {
 	// Keep nullable timestamp handling in one place so row-to-model mapping stays

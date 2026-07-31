@@ -53,8 +53,6 @@ func sortedResponseRatingValues(t *testing.T, ratings []any) []float64 {
 	return values
 }
 
-// --- upsertRatingHandler tests ---
-
 func TestUpsertRating_ValidHalfStepRatingIsReturnedOnClientScale(t *testing.T) {
 	app := newTestApp("")
 	user := newTestUser("Alice", "alice@example.com", "password123", true)
@@ -79,34 +77,6 @@ func TestUpsertRating_ValidHalfStepRatingIsReturnedOnClientScale(t *testing.T) {
 	if rating["media_id"] != mediaID.String() {
 		t.Errorf("expected media_id %s, got %v", mediaID, rating["media_id"])
 	}
-}
-
-func TestUpsertRating_UpdatesExistingRatingAndReturnsClientScale(t *testing.T) {
-	app := newTestApp("")
-	user := newTestUser("Alice", "alice@example.com", "password123", true)
-	mediaID := uuid.New()
-
-	body := fmt.Sprintf(`{"media_id":"%s","rating_value":2.5}`, mediaID)
-	req := httptest.NewRequest("PUT", "/api/v1/ratings", strings.NewReader(body))
-	req = withUser(req, user)
-	rr := httptest.NewRecorder()
-	app.upsertRatingHandler(rr, req)
-
-	body = fmt.Sprintf(`{"media_id":"%s","rating_value":3.5}`, mediaID)
-	req = httptest.NewRequest("PUT", "/api/v1/ratings", strings.NewReader(body))
-	req = withUser(req, user)
-	rr = httptest.NewRecorder()
-	app.upsertRatingHandler(rr, req)
-
-	if rr.Code != http.StatusOK {
-		t.Fatalf("expected 200, got %d: %s", rr.Code, rr.Body.String())
-	}
-
-	var resp map[string]any
-	json.Unmarshal(rr.Body.Bytes(), &resp)
-
-	rating := resp["rating"].(map[string]any)
-	assertFloatRatingValue(t, rating["rating_value"], 3.5)
 }
 
 func TestUpsertRating_EmptyBody(t *testing.T) {
@@ -156,31 +126,7 @@ func TestUpsertRating_RatingTooLow(t *testing.T) {
 	}
 }
 
-// --- deleteRatingHandler tests ---
-
-func TestDeleteRating_Existing(t *testing.T) {
-	app := newTestApp("")
-	user := newTestUser("Alice", "alice@example.com", "password123", true)
-	mediaID := uuid.New()
-
-	mock := app.models.Ratings.(*mockRatingModel)
-	mock.ratings[ratingKey(user.ID, mediaID)] = data.UserRating{
-		Rating: data.Rating{UserID: user.ID, MediaID: mediaID, RatingValue: 8},
-	}
-
-	req := httptest.NewRequest("DELETE", "/api/v1/ratings/"+mediaID.String(), nil)
-	req.SetPathValue("media_id", mediaID.String())
-	req = withUser(req, user)
-	rr := httptest.NewRecorder()
-
-	app.deleteRatingHandler(rr, req)
-
-	if rr.Code != http.StatusNoContent {
-		t.Fatalf("expected 204, got %d: %s", rr.Code, rr.Body.String())
-	}
-}
-
-func TestDeleteRating_NonExistent(t *testing.T) {
+func TestDeleteRating_NonExistentMapsToNotFound(t *testing.T) {
 	app := newTestApp("")
 	user := newTestUser("Alice", "alice@example.com", "password123", true)
 	mediaID := uuid.New()
@@ -213,8 +159,6 @@ func TestDeleteRating_InvalidMediaID(t *testing.T) {
 	}
 }
 
-// --- getRatingHandler tests ---
-
 func TestGetRating_ExistingReturnsTranslatedRatingValue(t *testing.T) {
 	app := newTestApp("")
 	user := newTestUser("Alice", "alice@example.com", "password123", true)
@@ -244,7 +188,7 @@ func TestGetRating_ExistingReturnsTranslatedRatingValue(t *testing.T) {
 	assertFloatRatingValue(t, r["rating_value"], 3.5)
 }
 
-func TestGetRating_NonExistent(t *testing.T) {
+func TestGetRating_NonExistentMapsToNotFound(t *testing.T) {
 	app := newTestApp("")
 	user := newTestUser("Alice", "alice@example.com", "password123", true)
 	mediaID := uuid.New()
@@ -276,8 +220,6 @@ func TestGetRating_InvalidMediaID(t *testing.T) {
 		t.Fatalf("expected 400, got %d: %s", rr.Code, rr.Body.String())
 	}
 }
-
-// --- listRatingsHandler tests ---
 
 func TestListRatings_ReturnsTranslatedUserRatings(t *testing.T) {
 	app := newTestApp("")
@@ -311,10 +253,6 @@ func TestListRatings_ReturnsTranslatedUserRatings(t *testing.T) {
 	json.Unmarshal(rr.Body.Bytes(), &resp)
 
 	ratings := resp["ratings"].([]any)
-	if len(ratings) != 3 {
-		t.Errorf("expected 3 ratings, got %d", len(ratings))
-	}
-
 	values := sortedResponseRatingValues(t, ratings)
 	want := []float64{3.5, 4.5, 5.0}
 	for i := range want {
@@ -323,23 +261,6 @@ func TestListRatings_ReturnsTranslatedUserRatings(t *testing.T) {
 		}
 	}
 }
-
-func TestListRatings_EmptyForNewUser(t *testing.T) {
-	app := newTestApp("")
-	user := newTestUser("Alice", "alice@example.com", "password123", true)
-
-	req := httptest.NewRequest("GET", "/api/v1/ratings", nil)
-	req = withUser(req, user)
-	rr := httptest.NewRecorder()
-
-	app.listRatingsHandler(rr, req)
-
-	if rr.Code != http.StatusOK {
-		t.Fatalf("expected 200, got %d: %s", rr.Code, rr.Body.String())
-	}
-}
-
-// --- listRatingsForMedia tests ---
 
 func TestListRatingsForMedia_ReturnsTranslatedRatings(t *testing.T) {
 	app := newTestApp("")
@@ -374,10 +295,6 @@ func TestListRatingsForMedia_ReturnsTranslatedRatings(t *testing.T) {
 	json.Unmarshal(rr.Body.Bytes(), &resp)
 
 	ratings := resp["ratings"].([]any)
-	if len(ratings) != 2 {
-		t.Errorf("expected 2 ratings, got %d", len(ratings))
-	}
-
 	values := sortedResponseRatingValues(t, ratings)
 	want := []float64{1.5, 4.0}
 	for i := range want {

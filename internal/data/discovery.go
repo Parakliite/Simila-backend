@@ -19,7 +19,13 @@ type Discovery struct {
 	Expiry time.Time `json:"expiry"`
 }
 
-func (d DiscoveryModel) GetDiscoveryHistoryExpiry(ctx context.Context, userID, mediaID uuid.UUID) (time.Time, error) {
+func (d DiscoveryModel) GetDiscoveryHistoryExpiry(
+	ctx context.Context,
+	userID, mediaID uuid.UUID,
+) (time.Time, error) {
+	ctx, cancel := context.WithTimeout(ctx, 3*time.Second)
+	defer cancel()
+
 	expTime, err := d.q.GetDiscoveryHistoryExpiry(ctx, database.GetDiscoveryHistoryExpiryParams{
 		UserID:  userID,
 		MediaID: mediaID,
@@ -41,6 +47,9 @@ func (d DiscoveryModel) SetDiscoveryHistoryExpiry(
 	userID, mediaID uuid.UUID,
 	eligibleAt time.Time,
 ) error {
+	ctx, cancel := context.WithTimeout(ctx, 3*time.Second)
+	defer cancel()
+
 	return d.q.SetDiscoveryHistoryExpiry(ctx, database.SetDiscoveryHistoryExpiryParams{
 		UserID:         userID,
 		MediaID:        mediaID,

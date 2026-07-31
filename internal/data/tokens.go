@@ -29,7 +29,12 @@ type Token struct {
 	Scope     string        `json:"-"`
 }
 
-func generateToken(userID uuid.UUID, sessionID uuid.NullUUID, ttl time.Duration, scope string) (*Token, error) {
+func generateToken(
+	userID uuid.UUID,
+	sessionID uuid.NullUUID,
+	ttl time.Duration,
+	scope string,
+) (*Token, error) {
 	token := &Token{
 		UserID:    userID,
 		SessionID: sessionID,
@@ -64,7 +69,13 @@ type TokenModel struct {
 
 // The New() method is a shortcut which creates a new Token struct and then inserts the
 // data in the tokens table.
-func (m TokenModel) New(ctx context.Context, userID uuid.UUID, sessionID uuid.NullUUID, ttl time.Duration, scope string) (*Token, error) {
+func (m TokenModel) New(
+	ctx context.Context,
+	userID uuid.UUID,
+	sessionID uuid.NullUUID,
+	ttl time.Duration,
+	scope string,
+) (*Token, error) {
 	token, err := generateToken(userID, sessionID, ttl, scope)
 	if err != nil {
 		return nil, err
@@ -89,7 +100,14 @@ func (m TokenModel) Insert(ctx context.Context, token *Token) error {
 	return err
 }
 
-func (m TokenModel) GetUserIDFromToken(ctx context.Context, scope string, tokenHash []byte) (userID uuid.UUID, sessionID uuid.UUID, err error) {
+func (m TokenModel) GetUserIDFromToken(
+	ctx context.Context,
+	scope string,
+	tokenHash []byte,
+) (userID uuid.UUID, sessionID uuid.UUID, err error) {
+	ctx, cancel := context.WithTimeout(ctx, 3*time.Second)
+	defer cancel()
+
 	row, err := m.q.GetUserFromToken(ctx, database.GetUserFromTokenParams{
 		Scope:     scope,
 		TokenHash: tokenHash,
@@ -109,6 +127,9 @@ func (m TokenModel) GetUserIDFromToken(ctx context.Context, scope string, tokenH
 }
 
 func (m TokenModel) RevokePreviousToken(ctx context.Context, scope string, tokenHash []byte) error {
+	ctx, cancel := context.WithTimeout(ctx, 3*time.Second)
+	defer cancel()
+
 	row, err := m.q.RevokePreviousToken(ctx, database.RevokePreviousTokenParams{
 		Scope:     scope,
 		TokenHash: tokenHash,
@@ -126,6 +147,9 @@ func (m TokenModel) RevokePreviousToken(ctx context.Context, scope string, token
 
 // Force the user to login again on all sessions.
 func (m TokenModel) RevokeAllPreviousTokens(ctx context.Context, scope string, userID uuid.UUID) error {
+	ctx, cancel := context.WithTimeout(ctx, 3*time.Second)
+	defer cancel()
+
 	return m.q.RevokeAllPreviousTokens(ctx, database.RevokeAllPreviousTokensParams{
 		UserID: userID,
 		Scope:  scope,
@@ -133,6 +157,9 @@ func (m TokenModel) RevokeAllPreviousTokens(ctx context.Context, scope string, u
 }
 
 func (m TokenModel) DeleteAllForUser(ctx context.Context, scope string, userID uuid.UUID) error {
+	ctx, cancel := context.WithTimeout(ctx, 3*time.Second)
+	defer cancel()
+
 	err := m.q.DeleteAllTokensAllForUser(ctx, database.DeleteAllTokensAllForUserParams{
 		Scope:  scope,
 		UserID: userID,

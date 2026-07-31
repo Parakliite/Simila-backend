@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
+	"time"
 
 	"github.com/parakliite/simila/internal/database"
 )
@@ -12,6 +13,9 @@ func (m UserModel) SearchUsers(ctx context.Context, query string, limit int32) (
 	if query == "" {
 		return nil, fmt.Errorf("empty query")
 	}
+
+	ctx, cancel := context.WithTimeout(ctx, 3*time.Second)
+	defer cancel()
 
 	rows, err := m.q.SearchUsers(ctx, database.SearchUsersParams{
 		Query: sql.NullString{

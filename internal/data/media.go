@@ -43,6 +43,9 @@ type MediaModel struct {
 }
 
 func (m MediaModel) InsertMedia(ctx context.Context, media *Media) error {
+	ctx, cancel := context.WithTimeout(ctx, 3*time.Second)
+	defer cancel()
+
 	row, err := m.q.CreateMedia(ctx,
 		database.CreateMediaParams{
 			TmdbID:        media.TmdbID,
@@ -86,6 +89,9 @@ func (m MediaModel) InsertMedia(ctx context.Context, media *Media) error {
 }
 
 func (m MediaModel) GetMedia(ctx context.Context, id int32, mediaType string) (*Media, error) {
+	ctx, cancel := context.WithTimeout(ctx, 3*time.Second)
+	defer cancel()
+
 	media, err := m.q.GetMedia(ctx, database.GetMediaParams{
 		TmdbID:    id,
 		MediaType: mediaType,

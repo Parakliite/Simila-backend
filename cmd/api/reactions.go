@@ -11,8 +11,8 @@ import (
 	"github.com/parakliite/simila/internal/validator"
 )
 
-func (app *application) upsertReactionHandler(w http.ResponseWriter, r *http.Request) {
-	user := app.contextGetUser(r)
+func (app *application) upsertReactionHandler(w http.ResponseWriter, req *http.Request) {
+	user := app.contextGetUser(req)
 
 	var input struct {
 		RatingUserID uuid.UUID `json:"rating_user_id"`
@@ -20,9 +20,9 @@ func (app *application) upsertReactionHandler(w http.ResponseWriter, r *http.Req
 		Reaction     string    `json:"reaction"`
 	}
 
-	err := app.readJSON(w, r, &input)
+	err := app.readJSON(w, req, &input)
 	if err != nil {
-		app.badRequestResponse(w, r, err)
+		app.badRequestResponse(w, req, err)
 		return
 	}
 
@@ -35,67 +35,64 @@ func (app *application) upsertReactionHandler(w http.ResponseWriter, r *http.Req
 		v.AddError("media_id", "must be provided")
 	}
 	if !v.Valid() {
-		app.failedValidationResponse(w, r, v.Errors)
+		app.failedValidationResponse(w, req, v.Errors)
 		return
 	}
 
-	reaction, err := app.models.Reactions.UpsertReaction(r.Context(), data.Reaction{
+	reaction, err := app.models.Reactions.UpsertReaction(req.Context(), data.Reaction{
 		ReactorUserID: user.ID,
 		RatingUserID:  input.RatingUserID,
 		MediaID:       input.MediaID,
 		Reaction:      database.ReactionType(input.Reaction),
 	})
 	if err != nil {
-		app.serverErrorResponse(w, r, err)
+		app.serverErrorResponse(w, req, err)
 		return
 	}
 
 	err = app.writeJSON(w, http.StatusOK, envelope{"reaction": reaction}, nil)
 	if err != nil {
-		app.serverErrorResponse(w, r, err)
+		app.serverErrorResponse(w, req, err)
 	}
 }
 
-func (app *application) deleteReactionHandler(w http.ResponseWriter, r *http.Request) {
-	user := app.contextGetUser(r)
+func (app *application) deleteReactionHandler(w http.ResponseWriter, req *http.Request) {
+	user := app.contextGetUser(req)
 
-	ratingUserID, err := uuid.Parse(r.PathValue("rating_user_id"))
+	ratingUserID, err := uuid.Parse(req.PathValue("rating_user_id"))
 	if err != nil {
-		app.badRequestResponse(w, r, fmt.Errorf("invalid rating_user_id"))
+		app.badRequestResponse(w, req, fmt.Errorf("invalid rating_user_id"))
 		return
 	}
 
-	mediaID, err := uuid.Parse(r.PathValue("media_id"))
+	mediaID, err := uuid.Parse(req.PathValue("media_id"))
 	if err != nil {
-		app.badRequestResponse(w, r, fmt.Errorf("invalid media_id"))
+		app.badRequestResponse(w, req, fmt.Errorf("invalid media_id"))
 		return
 	}
 
-	err = app.models.Reactions.DeleteReaction(r.Context(), user.ID, ratingUserID, mediaID)
+	err = app.models.Reactions.DeleteReaction(req.Context(), user.ID, ratingUserID, mediaID)
 	if err != nil {
 		switch err {
 		case data.ErrRecordNotFound:
-			app.notFoundResponse(w, r)
+			app.notFoundResponse(w, req)
 		default:
-			app.serverErrorResponse(w, r, err)
+			app.serverErrorResponse(w, req, err)
 		}
 		return
 	}
 
-	err = app.writeJSON(w, http.StatusNoContent, nil, nil)
-	if err != nil {
-		app.serverErrorResponse(w, r, err)
-	}
+	w.WriteHeader(http.StatusNoContent)
 }
 
-func (app *application) listUserReactionsHandler(w http.ResponseWriter, r *http.Request) {
-	ratingUserID, err := uuid.Parse(r.PathValue("user_id"))
+func (app *application) listUserReactionsHandler(w http.ResponseWriter, req *http.Request) {
+	ratingUserID, err := uuid.Parse(req.PathValue("user_id"))
 	if err != nil {
-		app.badRequestResponse(w, r, fmt.Errorf("invalid user_id"))
+		app.badRequestResponse(w, req, fmt.Errorf("invalid user_id"))
 		return
 	}
 
-	qs := r.URL.Query()
+	qs := req.URL.Query()
 	limit := app.readInt(qs, "limit", 20)
 	if limit < 1 || limit > 70 {
 		limit = 20
@@ -108,20 +105,20 @@ func (app *application) listUserReactionsHandler(w http.ResponseWriter, r *http.
 	if cursorStr != "" {
 		cursorReactorUserID, cursorCreatedAt, err = app.decodeCursor(cursorStr)
 		if err != nil {
-			app.badRequestResponse(w, r, err)
+			app.badRequestResponse(w, req, err)
 			return
 		}
 	}
 
 	reactions, err := app.models.Reactions.GetUserReactionsForTargetUser(
-		r.Context(),
+		req.Context(),
 		ratingUserID,
 		cursorCreatedAt,
 		cursorReactorUserID,
 		limit+1,
 	)
 	if err != nil {
-		app.serverErrorResponse(w, r, err)
+		app.serverErrorResponse(w, req, err)
 		return
 	}
 
@@ -138,31 +135,31 @@ func (app *application) listUserReactionsHandler(w http.ResponseWriter, r *http.
 		"next_cursor": nextCursor,
 	}, nil)
 	if err != nil {
-		app.serverErrorResponse(w, r, err)
+		app.serverErrorResponse(w, req, err)
 	}
 }
 
-func (app *application) getReactionCountForRatingHandler(w http.ResponseWriter, r *http.Request) {
-	ratingUserID, err := uuid.Parse(r.PathValue("rating_user_id"))
+func (app *application) getReactionCountForRatingHandler(w http.ResponseWriter, req *http.Request) {
+	ratingUserID, err := uuid.Parse(req.PathValue("rating_user_id"))
 	if err != nil {
-		app.badRequestResponse(w, r, fmt.Errorf("invalid rating_user_id"))
+		app.badRequestResponse(w, req, fmt.Errorf("invalid rating_user_id"))
 		return
 	}
 
-	mediaID, err := uuid.Parse(r.PathValue("media_id"))
+	mediaID, err := uuid.Parse(req.PathValue("media_id"))
 	if err != nil {
-		app.badRequestResponse(w, r, fmt.Errorf("invalid media_id"))
+		app.badRequestResponse(w, req, fmt.Errorf("invalid media_id"))
 		return
 	}
 
-	count, err := app.models.Reactions.GetReactionCountForRating(r.Context(), ratingUserID, mediaID)
+	count, err := app.models.Reactions.GetReactionCountForRating(req.Context(), ratingUserID, mediaID)
 	if err != nil {
-		app.serverErrorResponse(w, r, err)
+		app.serverErrorResponse(w, req, err)
 		return
 	}
 
 	err = app.writeJSON(w, http.StatusOK, envelope{"reaction_count": count}, nil)
 	if err != nil {
-		app.serverErrorResponse(w, r, err)
+		app.serverErrorResponse(w, req, err)
 	}
 }

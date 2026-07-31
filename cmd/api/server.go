@@ -13,6 +13,8 @@ import (
 )
 
 func (app *application) serve() error {
+	matchesCtx, stopMatches := context.WithCancel(context.Background())
+
 	server := &http.Server{
 		Addr:         fmt.Sprintf(":%d", port),
 		Handler:      app.routes(),
@@ -41,6 +43,8 @@ func (app *application) serve() error {
 			shutdownError <- err
 		}
 
+		stopMatches()
+
 		app.logger.PrintInfo("completing background tasks", map[string]string{
 			"addr": server.Addr,
 		})
@@ -52,6 +56,10 @@ func (app *application) serve() error {
 	app.logger.PrintInfo("starting server", map[string]string{
 		"addr": server.Addr,
 		"env":  app.config.environment,
+	})
+
+	app.background(func() {
+		app.recalculateMatchesJob(matchesCtx)
 	})
 
 	err := server.ListenAndServe()

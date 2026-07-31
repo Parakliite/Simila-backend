@@ -41,8 +41,8 @@ func (app *application) writeJSON(
 	return err
 }
 
-func (app *application) readIDParam(r *http.Request) (int32, error) {
-	id, err := strconv.ParseInt(r.PathValue("id"), 10, 32)
+func (app *application) readIDParam(req *http.Request) (int32, error) {
+	id, err := strconv.ParseInt(req.PathValue("id"), 10, 32)
 	if err != nil || id < 1 {
 		return 0, errors.New("invalid id parameter")
 	}
@@ -50,10 +50,10 @@ func (app *application) readIDParam(r *http.Request) (int32, error) {
 	return int32(id), nil
 }
 
-func (app *application) readJSON(w http.ResponseWriter, r *http.Request, dst interface{}) error {
+func (app *application) readJSON(w http.ResponseWriter, req *http.Request, dst interface{}) error {
 	maxBytes := 1_048_576
-	r.Body = http.MaxBytesReader(w, r.Body, int64(maxBytes))
-	dec := json.NewDecoder(r.Body)
+	req.Body = http.MaxBytesReader(w, req.Body, int64(maxBytes))
+	dec := json.NewDecoder(req.Body)
 	dec.DisallowUnknownFields()
 
 	err := dec.Decode(dst)
@@ -153,6 +153,11 @@ func (app *application) readInt(qs url.Values, key string, defaultValue int32) i
 	return int32(i)
 }
 
+func (app *application) encodeCursor(u uuid.UUID, t time.Time) string {
+	s := fmt.Sprintf("%v_%v", t, u)
+	return base64.URLEncoding.EncodeToString([]byte(s))
+}
+
 func (app *application) decodeCursor(cursorStr string) (uuid.UUID, time.Time, error) {
 	b, err := base64.URLEncoding.DecodeString(cursorStr)
 	if err != nil {
@@ -162,7 +167,7 @@ func (app *application) decodeCursor(cursorStr string) (uuid.UUID, time.Time, er
 	cursor := string(b)
 	parts := strings.Split(cursor, "_")
 	if len(parts) != 2 {
-		return uuid.Nil, time.Time{}, fmt.Errorf("malformed cursor")
+		return uuid.Nil, time.Time{}, errors.New("malformed cursor")
 	}
 
 	t, err := time.Parse(time.RFC3339Nano, parts[0])
@@ -178,7 +183,50 @@ func (app *application) decodeCursor(cursorStr string) (uuid.UUID, time.Time, er
 	return u, t, nil
 }
 
-func (app *application) encodeCursor(u uuid.UUID, t time.Time) string {
-	s := fmt.Sprintf("%v_%v", t, u)
+func (app *application) encodeCursorMatches(
+	score float64,
+	sharedMediaCount int32,
+	recalculatedAt time.Time,
+	otherUserID uuid.UUID,
+) string {
+	s := fmt.Sprintf("%v_%v_%v_%v", score, sharedMediaCount, recalculatedAt, otherUserID)
 	return base64.URLEncoding.EncodeToString([]byte(s))
+}
+
+func (app *application) decodeCursorMatches(
+	cursorStr string,
+) (score float64, sharedMediaCount int32, recalculatedAt time.Time, otherUserID uuid.UUID, err error) {
+	b, err := base64.URLEncoding.DecodeString(cursorStr)
+	if err != nil {
+		return 0, 0, time.Time{}, uuid.Nil, err
+	}
+
+	cursor := string(b)
+	parts := strings.Split(cursor, "_")
+	if len(parts) != 4 {
+		return 0.0, 0, time.Time{}, uuid.Nil, errors.New("malformed cursor")
+	}
+
+	score, err = strconv.ParseFloat(parts[0], 64)
+	if err != nil {
+		return 0, 0, time.Time{}, uuid.Nil, err
+	}
+
+	sharedMedia, err := strconv.ParseInt(parts[1], 10, 32)
+	if err != nil {
+		return 0, 0, time.Time{}, uuid.Nil, err
+	}
+	sharedMediaCount = int32(sharedMedia)
+
+	recalculatedAt, err = time.Parse(time.RFC3339Nano, parts[2])
+	if err != nil {
+		return 0, 0, time.Time{}, uuid.Nil, err
+	}
+
+	otherUserID, err = uuid.Parse(parts[3])
+	if err != nil {
+		return 0, 0, time.Time{}, uuid.Nil, err
+	}
+
+	return score, sharedMediaCount, recalculatedAt, otherUserID, nil
 }

@@ -40,6 +40,9 @@ func translateRatingValueInbound(value float64) int32 {
 }
 
 func (r RatingModel) UpsertUserRating(ctx context.Context, rating Rating) (Rating, error) {
+	ctx, cancel := context.WithTimeout(ctx, 3*time.Second)
+	defer cancel()
+
 	var watchedDate sql.NullTime
 	if rating.WatchedDate != nil {
 		watchedDate = sql.NullTime{
@@ -69,6 +72,9 @@ func (r RatingModel) UpsertUserRating(ctx context.Context, rating Rating) (Ratin
 }
 
 func (r RatingModel) DeleteUserRating(ctx context.Context, userID, mediaID uuid.UUID) error {
+	ctx, cancel := context.WithTimeout(ctx, 3*time.Second)
+	defer cancel()
+
 	row, err := r.q.SoftDeleteUserRating(ctx, database.SoftDeleteUserRatingParams{
 		UserID:  userID,
 		MediaID: mediaID,
@@ -90,6 +96,9 @@ func (r RatingModel) GetUsersRatings(
 	limit int32,
 	userID, mediaID uuid.UUID,
 ) ([]UserRating, error) {
+	ctx, cancel := context.WithTimeout(ctx, 3*time.Second)
+	defer cancel()
+
 	rows, err := r.q.GetUsersRatings(ctx, database.GetUsersRatingsParams{
 		UserID:          userID,
 		CursorCreatedAt: createdAt,
@@ -116,6 +125,9 @@ func (r RatingModel) GetUsersRating(
 	ctx context.Context,
 	userID, mediaID uuid.UUID,
 ) (UserRating, error) {
+	ctx, cancel := context.WithTimeout(ctx, 3*time.Second)
+	defer cancel()
+
 	row, err := r.q.GetSingleUserRating(ctx, database.GetSingleUserRatingParams{
 		UserID:  userID,
 		MediaID: mediaID,
@@ -154,6 +166,9 @@ func (r RatingModel) GetAllRatingsForSingleMedia(
 	mediaID, userID uuid.UUID,
 	limit int32,
 ) ([]UserRating, error) {
+	ctx, cancel := context.WithTimeout(ctx, 3*time.Second)
+	defer cancel()
+
 	rows, err := r.q.GetAllRatingsForSingleMedia(
 		ctx,
 		database.GetAllRatingsForSingleMediaParams{
@@ -183,6 +198,9 @@ func (r RatingModel) GetRandomMedia(
 	userID uuid.UUID,
 	limit int32,
 ) ([]Media, error) {
+	ctx, cancel := context.WithTimeout(ctx, 3*time.Second)
+	defer cancel()
+
 	randomMedia, err := r.q.GetRandomMedia(ctx, database.GetRandomMediaParams{
 		UserID: userID,
 		Limit:  limit,

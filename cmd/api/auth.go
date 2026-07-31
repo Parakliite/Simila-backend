@@ -17,15 +17,15 @@ const (
 	refreshTokenExpiryDuration = 24 * 31 * time.Hour
 )
 
-func (app *application) loginHandler(w http.ResponseWriter, r *http.Request) {
+func (app *application) loginHandler(w http.ResponseWriter, req *http.Request) {
 	var input struct {
 		Email    string `json:"email"`
 		Password string `json:"password"`
 	}
 
-	err := app.readJSON(w, r, &input)
+	err := app.readJSON(w, req, &input)
 	if err != nil {
-		app.badRequestResponse(w, r, err)
+		app.badRequestResponse(w, req, err)
 		return
 	}
 
@@ -35,32 +35,32 @@ func (app *application) loginHandler(w http.ResponseWriter, r *http.Request) {
 	data.ValidatePasswordPlaintext(v, input.Password)
 
 	if !v.Valid() {
-		app.failedValidationResponse(w, r, v.Errors)
+		app.failedValidationResponse(w, req, v.Errors)
 		return
 	}
 
 	user, err := app.models.Users.GetByEmail(
-		r.Context(),
+		req.Context(),
 		input.Email,
 	)
 	if err != nil {
 		switch {
 		case errors.Is(err, data.ErrRecordNotFound):
-			app.invalidCredentialsResponse(w, r)
+			app.invalidCredentialsResponse(w, req)
 		default:
-			app.serverErrorResponse(w, r, err)
+			app.serverErrorResponse(w, req, err)
 		}
 		return
 	}
 
 	match, err := user.Password.Matches(input.Password)
 	if err != nil {
-		app.serverErrorResponse(w, r, err)
+		app.serverErrorResponse(w, req, err)
 		return
 	}
 
 	if !match {
-		app.invalidCredentialsResponse(w, r)
+		app.invalidCredentialsResponse(w, req)
 		return
 	}
 
@@ -68,32 +68,32 @@ func (app *application) loginHandler(w http.ResponseWriter, r *http.Request) {
 	sessionID := uuid.New()
 
 	accessToken, err := app.models.Tokens.New(
-		r.Context(),
+		req.Context(),
 		user.ID,
 		uuid.NullUUID{Valid: false},
 		accessTokenExpiryDuration,
 		data.ScopeAuthentication,
 	)
 	if err != nil {
-		app.serverErrorResponse(w, r, err)
+		app.serverErrorResponse(w, req, err)
 		return
 	}
 
-	err = app.models.Tokens.RevokeAllPreviousTokens(r.Context(), data.ScopeRefresh, user.ID)
+	err = app.models.Tokens.RevokeAllPreviousTokens(req.Context(), data.ScopeRefresh, user.ID)
 	if err != nil {
-		app.serverErrorResponse(w, r, err) // does it return an error if no rows exist?
+		app.serverErrorResponse(w, req, err) // does it return an error if no rows exist?
 		return
 	}
 
 	refreshToken, err := app.models.Tokens.New(
-		r.Context(),
+		req.Context(),
 		user.ID,
 		uuid.NullUUID{UUID: sessionID, Valid: true},
 		refreshTokenExpiryDuration,
 		data.ScopeRefresh,
 	)
 	if err != nil {
-		app.serverErrorResponse(w, r, err)
+		app.serverErrorResponse(w, req, err)
 		return
 	}
 
@@ -104,7 +104,7 @@ func (app *application) loginHandler(w http.ResponseWriter, r *http.Request) {
 		nil,
 	)
 	if err != nil {
-		app.serverErrorResponse(w, r, err)
+		app.serverErrorResponse(w, req, err)
 	}
 }
 

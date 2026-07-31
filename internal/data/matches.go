@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
+	"time"
 
 	"github.com/google/uuid"
 	"github.com/parakliite/simila/internal/database"
@@ -15,8 +16,18 @@ type MatchModel struct {
 	q  *database.Queries
 }
 
-func (m MatchModel) MapMediaToIndex() (map[uuid.UUID]int, error) {
-	allIds, err := m.q.GetAllMedia(context.Background())
+type Match struct {
+	User               User      `json:"user"`
+	Score              float64   `json:"score"`
+	SharedMedia        int32     `json:"shared_media_count"`
+	LastRecalculatedAt time.Time `json:"-"`
+}
+
+func (m MatchModel) MapMediaToIndex(ctx context.Context) (map[uuid.UUID]int, error) {
+	ctx, cancel := context.WithTimeout(ctx, 3*time.Second)
+	defer cancel()
+
+	allIds, err := m.q.GetAllMedia(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("could not get all media: %w", err)
 	}
@@ -52,19 +63,20 @@ func allUsersRatings(ratings []Rating, indexMap map[uuid.UUID]int, size int) []f
 	return data
 }
 
-func (m MatchModel) GetSimilarities(
+func (m MatchModel) CalculateSimilarities(
 	ctx context.Context,
 	targetUserID uuid.UUID,
 	ratings []Rating,
 	indexMap map[uuid.UUID]int,
-) (map[uuid.UUID]float64, error) {
-	targetRatingsVec := allUsersRatings(ratings, indexMap, len(indexMap))
+) error {
+	ctx, cancel := context.WithTimeout(ctx, 3*time.Second)
+	defer cancel()
 
-	similarities := make(map[uuid.UUID]float64)
+	targetRatingsVec := allUsersRatings(ratings, indexMap, len(indexMap))
 
 	allUsers, err := m.q.GetAllUsers(ctx)
 	if err != nil {
-		return nil, fmt.Errorf("could not get all users: %w", err)
+		return fmt.Errorf("could not get all users: %w", err)
 	}
 
 	for _, user := range allUsers {
@@ -74,7 +86,7 @@ func (m MatchModel) GetSimilarities(
 
 		otherUserRatings, err := m.q.GetAllUserRatings(ctx, user)
 		if err != nil {
-			return nil, fmt.Errorf("could not get all user ratings: %w", err)
+			return fmt.Errorf("could not get all user ratings: %w", err)
 		}
 
 		var otherUserRatingsParsed []Rating
@@ -105,17 +117,19 @@ func (m MatchModel) GetSimilarities(
 				SharedMediaCount: int32(shared),
 			})
 			if err != nil {
-				return nil, fmt.Errorf("could not upsert user match: %w", err)
+				return fmt.Errorf("could not upsert user match: %w", err)
 			}
 		}
 
-		similarities[user] = cosineSim
 	}
 
-	return similarities, nil
+	return nil
 }
 
 func (m MatchModel) GetAllUserRatingsForMatches(ctx context.Context, userID uuid.UUID) ([]Rating, error) {
+	ctx, cancel := context.WithTimeout(ctx, 3*time.Second)
+	defer cancel()
+
 	rows, err := m.q.GetAllUserRatings(ctx, userID)
 	if err != nil {
 		return nil, err
@@ -128,6 +142,63 @@ func (m MatchModel) GetAllUserRatingsForMatches(ctx context.Context, userID uuid
 	}
 
 	return ratings, nil
+}
+
+func (m MatchModel) GetUserMatches(
+	ctx context.Context,
+	targetUserID uuid.UUID,
+	limit int32,
+	cursorOtherUserID uuid.NullUUID,
+	cursorScore sql.NullFloat64,
+	cursorSharedMediaCount sql.NullInt32,
+	cursorLastRecalculatedAt sql.NullTime,
+) ([]Match, error) {
+	ctx, cancel := context.WithTimeout(ctx, 3*time.Second)
+	defer cancel()
+
+	rows, err := m.q.GetUserMatches(ctx, database.GetUserMatchesParams{
+		TargetUserID:             targetUserID,
+		Limit:                    limit,
+		CursorScore:              cursorScore,
+		CursorSharedMediaCount:   cursorSharedMediaCount,
+		CursorLastRecalculatedAt: cursorLastRecalculatedAt,
+		CursorOtherUserID:        cursorOtherUserID,
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	var matches []Match
+
+	for _, row := range rows {
+		matches = append(matches, Match{
+			User: User{
+				Name:              row.UserName,
+				ProfilePictureURL: row.UserProfilePictureUrl.String,
+				ID:                row.UserID,
+				About:             row.UserAbout.String,
+				CreatedAt:         row.UserCreatedAt,
+			},
+			Score:              row.Score,
+			SharedMedia:        row.SharedMediaCount,
+			LastRecalculatedAt: row.LastRecalculatedAt,
+		})
+	}
+
+	return matches, nil
+}
+
+func (m MatchModel) CheckMatchExists(
+	ctx context.Context,
+	userID, otherUserID uuid.UUID,
+) (bool, error) {
+	ctx, cancel := context.WithTimeout(ctx, 3*time.Second)
+	defer cancel()
+
+	return m.q.CheckMatchExists(ctx, database.CheckMatchExistsParams{
+		TargetUserID: userID,
+		OtherUserID: otherUserID,
+	})
 }
 
 func toRating(row database.GetAllUserRatingsRow) Rating {

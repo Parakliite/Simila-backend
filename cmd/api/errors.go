@@ -1,19 +1,25 @@
 package main
 
 import (
+	"errors"
 	"net/http"
 )
 
-func (app *application) logError(r *http.Request, err error) {
+var (
+	errInvalidUserID = errors.New("an invalid user id was passed")
+	errUnexpected = errors.New("an unexpected error occurred")
+)
+
+func (app *application) logError(req *http.Request, err error) {
 	app.logger.PrintError(err, map[string]string{
-		"request_method": r.Method,
-		"request_url":    r.URL.String(),
+		"request_method": req.Method,
+		"request_url":    req.URL.String(),
 	})
 }
 
 func (app *application) errorResponse(
 	w http.ResponseWriter,
-	r *http.Request,
+	req *http.Request,
 	status int,
 	message interface{},
 ) {
@@ -24,72 +30,72 @@ func (app *application) errorResponse(
 	}
 }
 
-func (app *application) serverErrorResponse(w http.ResponseWriter, r *http.Request, err error) {
-	app.logError(r, err)
+func (app *application) serverErrorResponse(w http.ResponseWriter, req *http.Request, err error) {
+	app.logError(req, err)
 	message := "the server encountered a problem and could not process your request"
-	app.errorResponse(w, r, http.StatusInternalServerError, message)
+	app.errorResponse(w, req, http.StatusInternalServerError, message)
 }
 
-func (app *application) notFoundResponse(w http.ResponseWriter, r *http.Request) {
+func (app *application) notFoundResponse(w http.ResponseWriter, req *http.Request) {
 	message := "the requested resource could not be found"
-	app.errorResponse(w, r, http.StatusNotFound, message)
+	app.errorResponse(w, req, http.StatusNotFound, message)
 }
 
 /*
-func (app *application) methodNotAllowedResponnse(w http.ResponseWriter, r *http.Request) {
-	message := fmt.Sprintf("the %s method is not supported for this resource", r.Method)
-	app.errorResponse(w, r, http.StatusMethodNotAllowed, message)
+func (app *application) methodNotAllowedResponnse(w http.ResponseWriter, req *http.Request) {
+	message := fmt.Sprintf("the %s method is not supported for this resource", req.Method)
+	app.errorResponse(w, req, http.StatusMethodNotAllowed, message)
 }
 */
 
-func (app *application) badRequestResponse(w http.ResponseWriter, r *http.Request, err error) {
-	app.errorResponse(w, r, http.StatusBadRequest, err.Error())
+func (app *application) badRequestResponse(w http.ResponseWriter, req *http.Request, err error) {
+	app.errorResponse(w, req, http.StatusBadRequest, err.Error())
 }
 
 func (app *application) failedValidationResponse(
 	w http.ResponseWriter,
-	r *http.Request,
+	req *http.Request,
 	errors map[string]string,
 ) {
-	app.errorResponse(w, r, http.StatusUnprocessableEntity, errors)
+	app.errorResponse(w, req, http.StatusUnprocessableEntity, errors)
 }
 
-func (app *application) editConflictResponse(w http.ResponseWriter, r *http.Request) {
-	app.errorResponse(w, r, http.StatusConflict, "error editing...")
+func (app *application) editConflictResponse(w http.ResponseWriter, req *http.Request) {
+	app.errorResponse(w, req, http.StatusConflict, "error editing...")
 }
 
-func (app *application) invalidCredentialsResponse(w http.ResponseWriter, r *http.Request) {
+func (app *application) invalidCredentialsResponse(w http.ResponseWriter, req *http.Request) {
 	message := "invalid authentication credentials"
-	app.errorResponse(w, r, http.StatusUnauthorized, message)
+	app.errorResponse(w, req, http.StatusUnauthorized, message)
 }
 
-func (app *application) invalidAuthenticationTokenResponse(w http.ResponseWriter, r *http.Request) {
+func (app *application) invalidAuthenticationTokenResponse(w http.ResponseWriter, req *http.Request) {
 	// Tell clients to authenticate with a bearer token, even when the token is
 	// missing rather than merely invalid.
 	w.Header().Set("WWW-Authenticate", "Bearer")
 	message := "invalid or missing authentication token"
-	app.errorResponse(w, r, http.StatusUnauthorized, message)
+	app.errorResponse(w, req, http.StatusUnauthorized, message)
 }
 
-func (app *application) invalidRefreshTokenResponse(w http.ResponseWriter, r *http.Request) {
+func (app *application) invalidRefreshTokenResponse(w http.ResponseWriter, req *http.Request) {
 	w.Header().Set("WWW-Authenticate", "Bearer")
 	message := "invalid or missing refresh token"
-	app.errorResponse(w, r, http.StatusBadRequest, message)
+	app.errorResponse(w, req, http.StatusBadRequest, message)
 }
 
 /*
-func (app *application) authenticationRequiredResponse(w http.ResponseWriter, r *http.Request) {
+func (app *application) authenticationRequiredResponse(w http.ResponseWriter, req *http.Request) {
 	message := "you must be authenticated to access this resource"
-	app.errorResponse(w, r, http.StatusUnauthorized, message)
+	app.errorResponse(w, req, http.StatusUnauthorized, message)
 }
 */
 
-func (app *application) inactiveAccountResponse(w http.ResponseWriter, r *http.Request) {
+func (app *application) inactiveAccountResponse(w http.ResponseWriter, req *http.Request) {
 	message := "your user account must be activated to access this resource"
-	app.errorResponse(w, r, http.StatusForbidden, message)
+	app.errorResponse(w, req, http.StatusForbidden, message)
 }
 
-func (app *application) unauthorizedRequestResponse(w http.ResponseWriter, r *http.Request) {
+func (app *application) unauthorizedRequestResponse(w http.ResponseWriter, req *http.Request) {
 	message := "you can't access this"
-	app.errorResponse(w, r, http.StatusForbidden, message)
+	app.errorResponse(w, req, http.StatusForbidden, message)
 }

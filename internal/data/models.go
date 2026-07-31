@@ -21,13 +21,24 @@ type UserQuerier interface {
 	UpdateUser(ctx context.Context, user *User) error
 	GetUserForToken(ctx context.Context, tokenScope, tokenPlaintext string) (*User, error)
 	SearchUsers(ctx context.Context, query string, limit int32) ([]User, error)
-	RevokeAllTokensForSession(sessionID uuid.UUID, scope string) error
+	GetAllUsers(ctx context.Context) ([]uuid.UUID, error)
+	RevokeAllTokensForSession(ctx context.Context, sessionID uuid.NullUUID, scope string) error
 }
 
 type TokenQuerier interface {
-	New(ctx context.Context, userID uuid.UUID, sessionID uuid.NullUUID, ttl time.Duration, scope string) (*Token, error)
+	New(
+		ctx context.Context,
+		userID uuid.UUID,
+		sessionID uuid.NullUUID,
+		ttl time.Duration,
+		scope string,
+	) (*Token, error)
 	Insert(ctx context.Context, token *Token) error
-	GetUserIDFromToken(ctx context.Context, scope string, tokenHash []byte) (userID uuid.UUID, sessionID uuid.UUID, err error)
+	GetUserIDFromToken(
+		ctx context.Context,
+		scope string,
+		tokenHash []byte,
+	) (userID uuid.UUID, sessionID uuid.UUID, err error)
 	RevokePreviousToken(ctx context.Context, scope string, tokenHash []byte) error
 	RevokeAllPreviousTokens(ctx context.Context, scope string, userID uuid.UUID) error
 	DeleteAllForUser(ctx context.Context, scope string, userID uuid.UUID) error
@@ -46,9 +57,27 @@ type RatingQuerier interface {
 }
 
 type MatchQuerier interface {
-	GetSimilarities(ctx context.Context, targetUserID uuid.UUID, ratings []Rating, indexMap map[uuid.UUID]int) (map[uuid.UUID]float64, error)
-	MapMediaToIndex() (map[uuid.UUID]int, error)
+	CalculateSimilarities(
+		ctx context.Context,
+		targetUserID uuid.UUID,
+		ratings []Rating,
+		indexMap map[uuid.UUID]int,
+	) error
+	MapMediaToIndex(ctx context.Context) (map[uuid.UUID]int, error)
 	GetAllUserRatingsForMatches(ctx context.Context, userID uuid.UUID) ([]Rating, error)
+	GetUserMatches(
+		ctx context.Context,
+		targetUserID uuid.UUID,
+		limit int32,
+		cursorOtherUserID uuid.NullUUID,
+		cursorScore sql.NullFloat64,
+		cursorSharedMediaCount sql.NullInt32,
+		cursorLastRecalculatedAt sql.NullTime,
+	) ([]Match, error)
+	CheckMatchExists(
+		ctx context.Context,
+		userID, otherUserID uuid.UUID,
+	) (bool, error)
 }
 
 type ReactionQuerier interface {
@@ -85,15 +114,24 @@ type DiscoveryQuerier interface {
 	SetDiscoveryHistoryExpiry(ctx context.Context, userID, mediaID uuid.UUID, eligibleAt time.Time) error
 }
 
+type RecommendationsQuerier interface {
+	GetUserRecommendations(
+		ctx context.Context,
+		userID, targetUserID uuid.UUID,
+		threshold, limit int32,
+	) (Recommendations, error)
+}
+
 type Models struct {
-	Movies    MediaQuerier
-	Users     UserQuerier
-	Tokens    TokenQuerier
-	Ratings   RatingQuerier
-	Matches   MatchQuerier
-	Reactions ReactionQuerier
-	Watchlist WatchlistQuerier
-	Discovery DiscoveryQuerier
+	Movies          MediaQuerier
+	Users           UserQuerier
+	Tokens          TokenQuerier
+	Ratings         RatingQuerier
+	Matches         MatchQuerier
+	Reactions       ReactionQuerier
+	Watchlist       WatchlistQuerier
+	Discovery       DiscoveryQuerier
+	Recommendations RecommendationsQuerier
 }
 
 func NewModels(db *sql.DB) Models {
@@ -129,6 +167,10 @@ func NewModels(db *sql.DB) Models {
 			q:  dbQueries,
 		},
 		Discovery: DiscoveryModel{
+			DB: db,
+			q:  dbQueries,
+		},
+		Recommendations: RecommendationModel{
 			DB: db,
 			q:  dbQueries,
 		},

@@ -8,7 +8,7 @@ import (
 	"github.com/parakliite/simila/internal/data"
 )
 
-func (app *application) ListRandomMedia(w http.ResponseWriter, req *http.Request) {
+func (app *application) listRandomMediaHandler(w http.ResponseWriter, req *http.Request) {
 	user := app.contextGetUser(req)
 
 	media, err := app.models.Ratings.GetRandomMedia(req.Context(), user.ID, 10)
@@ -42,7 +42,12 @@ func (app *application) ListRandomMedia(w http.ResponseWriter, req *http.Request
 
 		parsedMediaList = append(parsedMediaList, m)
 
-		err = app.models.Discovery.SetDiscoveryHistoryExpiry(req.Context(), user.ID, m.ID, time.Now().Add(time.Hour*24*7))
+		err = app.models.Discovery.SetDiscoveryHistoryExpiry(
+			req.Context(),
+			user.ID,
+			m.ID,
+			time.Now().Add(time.Hour*24*7),
+		)
 		if err != nil {
 			app.logger.PrintError(err, nil)
 		}

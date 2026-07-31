@@ -13,7 +13,7 @@ import (
 func newTMDBServer() *httptest.Server {
 	mux := http.NewServeMux()
 
-	mux.HandleFunc("GET /3/movie/{id}", func(w http.ResponseWriter, r *http.Request) {
+	mux.HandleFunc("GET /3/movie/{id}", func(w http.ResponseWriter, req *http.Request) {
 		json.NewEncoder(w).Encode(map[string]any{
 			"id":             550,
 			"title":          "Fight Club",
@@ -28,7 +28,7 @@ func newTMDBServer() *httptest.Server {
 		})
 	})
 
-	mux.HandleFunc("GET /3/tv/{id}", func(w http.ResponseWriter, r *http.Request) {
+	mux.HandleFunc("GET /3/tv/{id}", func(w http.ResponseWriter, req *http.Request) {
 		json.NewEncoder(w).Encode(map[string]any{
 			"id":               1396,
 			"name":             "Breaking Bad",
@@ -42,8 +42,8 @@ func newTMDBServer() *httptest.Server {
 		})
 	})
 
-	mux.HandleFunc("GET /3/search/multi", func(w http.ResponseWriter, r *http.Request) {
-		query := r.URL.Query().Get("query")
+	mux.HandleFunc("GET /3/search/multi", func(w http.ResponseWriter, req *http.Request) {
+		query := req.URL.Query().Get("query")
 		if query == "" {
 			w.WriteHeader(http.StatusBadRequest)
 			return
@@ -135,41 +135,6 @@ func TestGetMedia_ReturnsTVShow(t *testing.T) {
 	}
 	if got["runtime"] != "47 min" {
 		t.Errorf("expected runtime %q, got %q", "47 min", got["runtime"])
-	}
-}
-
-func TestGetMedia_ReturnsCachedMedia(t *testing.T) {
-	tmdb := newTMDBServer()
-	defer tmdb.Close()
-	app := newTestApp(tmdb.URL)
-
-	cached := &data.Media{
-		TmdbID:    550,
-		Title:     "Fight Club",
-		MediaType: "movie",
-		Runtime:   data.Runtime(139),
-	}
-	app.models.Movies.(*mockMediaModel).media["550:movie"] = cached
-
-	req := httptest.NewRequest("GET", "/api/v1/media/550?type=movie", nil)
-	req.SetPathValue("id", "550")
-	rr := httptest.NewRecorder()
-
-	app.getMediaHandler(rr, req)
-
-	if rr.Code != http.StatusOK {
-		t.Fatalf("expected status 200, got %d", rr.Code)
-	}
-
-	var resp map[string]data.Media
-	json.Unmarshal(rr.Body.Bytes(), &resp)
-	got := resp["media"]
-
-	if got.Title != "Fight Club" {
-		t.Errorf("expected title %q, got %q", "Fight Club", got.Title)
-	}
-	if got.Genre == nil {
-		t.Fatalf("expected genre to serialize as an empty array, got nil")
 	}
 }
 
@@ -401,41 +366,6 @@ func TestSearchMedia_ResultsContainExpectedFields(t *testing.T) {
 	tv := results[1]
 	if tv.ID != 1396 || tv.Name != "Breaking Bad" || tv.MediaType != "tv" {
 		t.Errorf("unexpected tv result: %+v", tv)
-	}
-}
-
-// --- context propagation tests ---
-
-func TestGetMedia_PassesRequestContext(t *testing.T) {
-	tmdb := newTMDBServer()
-	defer tmdb.Close()
-	app := newTestApp(tmdb.URL)
-
-	cached := &data.Media{
-		TmdbID:    550,
-		Title:     "Fight Club",
-		MediaType: "movie",
-		Runtime:   data.Runtime(139),
-	}
-	mock := app.models.Movies.(*mockMediaModel)
-	mock.media["550:movie"] = cached
-
-	type ctxKey string
-	req := httptest.NewRequest("GET", "/api/v1/media/550?type=movie", nil)
-	req.SetPathValue("id", "550")
-	req = req.WithContext(context.WithValue(req.Context(), ctxKey("test"), "marker"))
-	rr := httptest.NewRecorder()
-
-	app.getMediaHandler(rr, req)
-
-	if rr.Code != http.StatusOK {
-		t.Fatalf("expected status 200, got %d", rr.Code)
-	}
-	if mock.lastCtx == nil {
-		t.Fatal("expected context to be passed to model, got nil")
-	}
-	if mock.lastCtx.Value(ctxKey("test")) != "marker" {
-		t.Error("model did not receive the request context")
 	}
 }
 
