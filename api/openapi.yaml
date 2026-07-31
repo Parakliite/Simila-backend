@@ -1,0 +1,1315 @@
+openapi: 3.1.0
+info:
+  title: Simila API
+  version: 1.0.0
+  description: API contract for Simila client-facing endpoints.
+servers:
+  - url: http://localhost:8080
+    description: Local development
+security:
+  - bearerAuth: []
+tags:
+  - name: Health
+  - name: Auth
+  - name: Users
+  - name: Media
+  - name: Search
+  - name: Discovery
+  - name: Ratings
+  - name: Matches
+  - name: Recommendations
+  - name: Reactions
+  - name: Impact
+  - name: Watchlist
+
+paths:
+  /api/v1/health:
+    get:
+      tags: [Health]
+      summary: Check API health
+      security: []
+      responses:
+        "200":
+          description: API is available
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/HealthResponse"
+
+  /api/v1/users:
+    post:
+      tags: [Users]
+      summary: Register a user
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/RegisterUserRequest"
+      responses:
+        "202":
+          description: User registered
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/UserResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "422":
+          $ref: "#/components/responses/ValidationError"
+        "500":
+          $ref: "#/components/responses/ServerError"
+
+  /api/v1/login:
+    post:
+      tags: [Auth]
+      summary: Create access and refresh tokens
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/LoginRequest"
+      responses:
+        "201":
+          description: Tokens created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AuthResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "422":
+          $ref: "#/components/responses/ValidationError"
+        "500":
+          $ref: "#/components/responses/ServerError"
+
+  /api/v1/refresh:
+    post:
+      tags: [Auth]
+      summary: Rotate a refresh token and create new tokens
+      security:
+        - bearerAuth: []
+      responses:
+        "201":
+          description: Tokens rotated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AuthResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "500":
+          $ref: "#/components/responses/ServerError"
+
+  /api/v1/users/activated:
+    put:
+      tags: [Users]
+      summary: Activate a user account
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ActivateUserRequest"
+      responses:
+        "200":
+          description: User activated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/UserResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "409":
+          $ref: "#/components/responses/Conflict"
+        "422":
+          $ref: "#/components/responses/ValidationError"
+        "500":
+          $ref: "#/components/responses/ServerError"
+
+  /api/v1/users/profile:
+    get:
+      tags: [Users]
+      summary: Get the authenticated user's profile
+      responses:
+        "200":
+          description: User profile
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/UserResponse"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "500":
+          $ref: "#/components/responses/ServerError"
+    patch:
+      tags: [Users]
+      summary: Update the authenticated user's profile
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateUserProfileRequest"
+      responses:
+        "200":
+          description: Updated user profile
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/UserResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "409":
+          $ref: "#/components/responses/Conflict"
+        "422":
+          $ref: "#/components/responses/ValidationError"
+        "500":
+          $ref: "#/components/responses/ServerError"
+
+  /api/v1/media/{id}:
+    get:
+      tags: [Media]
+      summary: Get media by TMDB ID and media type
+      parameters:
+        - $ref: "#/components/parameters/TMDBID"
+        - name: type
+          in: query
+          required: true
+          schema:
+            $ref: "#/components/schemas/MediaType"
+      responses:
+        "200":
+          description: Media item
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MediaResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "500":
+          $ref: "#/components/responses/ServerError"
+
+  /api/v1/search:
+    get:
+      tags: [Search]
+      summary: Search users and TMDB media
+      parameters:
+        - name: query
+          in: query
+          required: true
+          schema:
+            type: string
+        - $ref: "#/components/parameters/SearchLimit"
+      responses:
+        "200":
+          description: Search results
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SearchResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "500":
+          $ref: "#/components/responses/ServerError"
+
+  /api/v1/discovery/rating-candidates:
+    get:
+      tags: [Discovery]
+      summary: List random media candidates for rating
+      responses:
+        "200":
+          description: Rating candidates
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MediaListResponse"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "500":
+          $ref: "#/components/responses/ServerError"
+
+  /api/v1/ratings:
+    put:
+      tags: [Ratings]
+      summary: Create or update a rating
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpsertRatingRequest"
+      responses:
+        "200":
+          description: Rating saved
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RatingResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "422":
+          $ref: "#/components/responses/ValidationError"
+        "500":
+          $ref: "#/components/responses/ServerError"
+    get:
+      tags: [Ratings]
+      summary: List ratings for the authenticated user
+      parameters:
+        - $ref: "#/components/parameters/ListLimit"
+        - $ref: "#/components/parameters/Cursor"
+      responses:
+        "200":
+          description: User ratings
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/UserRatingsListResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "500":
+          $ref: "#/components/responses/ServerError"
+
+  /api/v1/ratings/{media_id}:
+    get:
+      tags: [Ratings]
+      summary: Get the authenticated user's rating for one media item
+      parameters:
+        - $ref: "#/components/parameters/MediaID"
+      responses:
+        "200":
+          description: User rating
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/UserRatingResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "500":
+          $ref: "#/components/responses/ServerError"
+    delete:
+      tags: [Ratings]
+      summary: Delete the authenticated user's rating for one media item
+      parameters:
+        - $ref: "#/components/parameters/MediaID"
+      responses:
+        "204":
+          description: Rating deleted
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "500":
+          $ref: "#/components/responses/ServerError"
+
+  /api/v1/media/{media_id}/ratings:
+    get:
+      tags: [Ratings]
+      summary: List ratings for a media item
+      parameters:
+        - $ref: "#/components/parameters/MediaID"
+        - $ref: "#/components/parameters/ListLimit"
+        - $ref: "#/components/parameters/Cursor"
+      responses:
+        "200":
+          description: Ratings for media
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/UserRatingsListResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "500":
+          $ref: "#/components/responses/ServerError"
+
+  /api/v1/matches:
+    get:
+      tags: [Matches]
+      summary: List matches for the authenticated user
+      parameters:
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            default: 5
+            minimum: 1
+            maximum: 20
+        - $ref: "#/components/parameters/Cursor"
+      responses:
+        "200":
+          description: Matches
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MatchesResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "500":
+          $ref: "#/components/responses/ServerError"
+
+  /api/v1/recommendations/{user_id}:
+    get:
+      tags: [Recommendations]
+      summary: Get recommendations from a matched user
+      parameters:
+        - $ref: "#/components/parameters/UserID"
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            default: 5
+            minimum: 1
+            maximum: 10
+      responses:
+        "200":
+          description: Recommendations
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RecommendationsResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "500":
+          $ref: "#/components/responses/ServerError"
+
+  /api/v1/reactions:
+    put:
+      tags: [Reactions]
+      summary: Create or update a reaction
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpsertReactionRequest"
+      responses:
+        "200":
+          description: Reaction saved
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ReactionResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "422":
+          $ref: "#/components/responses/ValidationError"
+        "500":
+          $ref: "#/components/responses/ServerError"
+
+  /api/v1/reactions/{rating_user_id}/{media_id}:
+    delete:
+      tags: [Reactions]
+      summary: Delete a reaction
+      parameters:
+        - name: rating_user_id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - $ref: "#/components/parameters/MediaID"
+      responses:
+        "204":
+          description: Reaction deleted
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "500":
+          $ref: "#/components/responses/ServerError"
+
+  /api/v1/users/{user_id}/reactions:
+    get:
+      tags: [Reactions]
+      summary: List reactions for a target user's ratings
+      parameters:
+        - $ref: "#/components/parameters/UserID"
+        - $ref: "#/components/parameters/ListLimit"
+        - $ref: "#/components/parameters/Cursor"
+      responses:
+        "200":
+          description: Reactions
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ReactionsListResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "500":
+          $ref: "#/components/responses/ServerError"
+
+  /api/v1/ratings/{rating_user_id}/{media_id}/reactions/count:
+    get:
+      tags: [Reactions]
+      summary: Get reaction count for a rating
+      parameters:
+        - name: rating_user_id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - $ref: "#/components/parameters/MediaID"
+      responses:
+        "200":
+          description: Reaction count
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ReactionCountResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "500":
+          $ref: "#/components/responses/ServerError"
+
+  /api/v1/impact/{user_id}:
+    get:
+      tags: [Impact]
+      summary: List grouped reaction impact for the authenticated user
+      parameters:
+        - $ref: "#/components/parameters/UserID"
+        - $ref: "#/components/parameters/ListLimit"
+        - $ref: "#/components/parameters/Cursor"
+      responses:
+        "200":
+          description: Impact reactions
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ImpactResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "500":
+          $ref: "#/components/responses/ServerError"
+
+  /api/v1/watchlist:
+    post:
+      tags: [Watchlist]
+      summary: Add media to the authenticated user's watchlist
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/InsertWatchlistRequest"
+      responses:
+        "200":
+          description: Watchlist item added
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/WatchlistResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "422":
+          $ref: "#/components/responses/ValidationError"
+        "500":
+          $ref: "#/components/responses/ServerError"
+    get:
+      tags: [Watchlist]
+      summary: List the authenticated user's watchlist
+      parameters:
+        - $ref: "#/components/parameters/ListLimit"
+        - $ref: "#/components/parameters/Cursor"
+        - name: status
+          in: query
+          schema:
+            $ref: "#/components/schemas/WatchlistStatus"
+      responses:
+        "200":
+          description: Watchlist items
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/WatchlistListResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "500":
+          $ref: "#/components/responses/ServerError"
+
+  /api/v1/watchlist/{media_id}:
+    patch:
+      tags: [Watchlist]
+      summary: Update a watchlist item's status
+      parameters:
+        - $ref: "#/components/parameters/MediaID"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateWatchlistStatusRequest"
+      responses:
+        "200":
+          description: Watchlist item updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/WatchlistResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "422":
+          $ref: "#/components/responses/ValidationError"
+        "500":
+          $ref: "#/components/responses/ServerError"
+    delete:
+      tags: [Watchlist]
+      summary: Delete a watchlist item
+      parameters:
+        - $ref: "#/components/parameters/MediaID"
+      responses:
+        "204":
+          description: Watchlist item deleted
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "500":
+          $ref: "#/components/responses/ServerError"
+
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: opaque
+
+  parameters:
+    TMDBID:
+      name: id
+      in: path
+      required: true
+      schema:
+        type: integer
+        format: int32
+        minimum: 1
+    UserID:
+      name: user_id
+      in: path
+      required: true
+      schema:
+        type: string
+        format: uuid
+    MediaID:
+      name: media_id
+      in: path
+      required: true
+      schema:
+        type: string
+        format: uuid
+    Cursor:
+      name: cursor
+      in: query
+      schema:
+        type: string
+      description: Opaque pagination cursor returned by the previous response.
+    ListLimit:
+      name: limit
+      in: query
+      schema:
+        type: integer
+        default: 20
+        minimum: 1
+        maximum: 70
+    SearchLimit:
+      name: limit
+      in: query
+      schema:
+        type: integer
+        default: 10
+        minimum: 1
+        maximum: 70
+
+  responses:
+    BadRequest:
+      description: Invalid request
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorResponse"
+    Unauthorized:
+      description: Missing or invalid authentication token
+      headers:
+        WWW-Authenticate:
+          schema:
+            type: string
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorResponse"
+    Forbidden:
+      description: Request is authenticated but not allowed
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorResponse"
+    NotFound:
+      description: Resource not found
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorResponse"
+    Conflict:
+      description: Edit conflict
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorResponse"
+    ValidationError:
+      description: Validation failed
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ValidationErrorResponse"
+    ServerError:
+      description: Server error
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorResponse"
+
+  schemas:
+    UUID:
+      type: string
+      format: uuid
+    Timestamp:
+      type: string
+      format: date-time
+    Date:
+      type: string
+      format: date-time
+    CursorValue:
+      type:
+        - string
+        - "null"
+
+    HealthResponse:
+      type: object
+      required: [status, environment, version]
+      properties:
+        status:
+          type: string
+          example: available
+        environment:
+          type: string
+          example: development
+        version:
+          type: string
+          example: 1.0.0
+
+    ErrorResponse:
+      type: object
+      required: [error]
+      properties:
+        error:
+          type: string
+    ValidationErrorResponse:
+      type: object
+      required: [error]
+      properties:
+        error:
+          type: object
+          additionalProperties:
+            type: string
+
+    RegisterUserRequest:
+      type: object
+      required: [name, email, password]
+      properties:
+        name:
+          type: string
+          maxLength: 500
+        email:
+          type: string
+          format: email
+        password:
+          type: string
+          minLength: 8
+          maxLength: 72
+          writeOnly: true
+    LoginRequest:
+      type: object
+      required: [email, password]
+      properties:
+        email:
+          type: string
+          format: email
+        password:
+          type: string
+          writeOnly: true
+    ActivateUserRequest:
+      type: object
+      required: [token]
+      properties:
+        token:
+          type: string
+          minLength: 26
+          maxLength: 26
+    UpdateUserProfileRequest:
+      type: object
+      properties:
+        name:
+          type: string
+          maxLength: 500
+        about:
+          type: string
+        profile_picture_url:
+          type: string
+
+    User:
+      type: object
+      required: [id, created_at, updated_at, name, email, activated]
+      properties:
+        id:
+          $ref: "#/components/schemas/UUID"
+        created_at:
+          $ref: "#/components/schemas/Timestamp"
+        updated_at:
+          $ref: "#/components/schemas/Timestamp"
+        name:
+          type: string
+        profile_picture_url:
+          type: string
+        about:
+          type: string
+        email:
+          type: string
+          format: email
+        activated:
+          type: boolean
+    UserResponse:
+      type: object
+      required: [user]
+      properties:
+        user:
+          $ref: "#/components/schemas/User"
+
+    Token:
+      type: object
+      required: [token, session_id]
+      properties:
+        token:
+          type: string
+        session_id:
+          type:
+            - string
+            - "null"
+          format: uuid
+    AuthResponse:
+      type: object
+      required: [access_token, refresh_token]
+      properties:
+        access_token:
+          $ref: "#/components/schemas/Token"
+        refresh_token:
+          $ref: "#/components/schemas/Token"
+
+    MediaType:
+      type: string
+      enum: [movie, tv]
+    Genre:
+      type: object
+      required: [name]
+      properties:
+        name:
+          type: string
+    Media:
+      type: object
+      required:
+        - _id
+        - created_at
+        - updated_at
+        - tmdb_id
+        - title
+        - release_date
+        - runtime
+        - overview
+        - original_title
+        - poster_path
+        - backdrop_path
+        - media_type
+        - genre
+      properties:
+        _id:
+          $ref: "#/components/schemas/UUID"
+        created_at:
+          $ref: "#/components/schemas/Timestamp"
+        updated_at:
+          $ref: "#/components/schemas/Timestamp"
+        tmdb_id:
+          type: integer
+          format: int32
+        title:
+          type: string
+        release_date:
+          $ref: "#/components/schemas/Date"
+        runtime:
+          type: integer
+          format: int32
+        overview:
+          type: string
+        original_title:
+          type: string
+        poster_path:
+          type: string
+        backdrop_path:
+          type: string
+        media_type:
+          $ref: "#/components/schemas/MediaType"
+        genre:
+          type: array
+          items:
+            $ref: "#/components/schemas/Genre"
+    MediaResponse:
+      type: object
+      required: [media]
+      properties:
+        media:
+          $ref: "#/components/schemas/Media"
+    MediaListResponse:
+      type: object
+      required: [media]
+      properties:
+        media:
+          type: array
+          items:
+            $ref: "#/components/schemas/Media"
+
+    TMDBSearchResult:
+      type: object
+      required: [backdrop_path, id, poster_path, media_type]
+      properties:
+        backdrop_path:
+          type: string
+        id:
+          type: integer
+        title:
+          type: string
+        original_title:
+          type: string
+        poster_path:
+          type: string
+        media_type:
+          $ref: "#/components/schemas/MediaType"
+        release_date:
+          type: string
+        name:
+          type: string
+        original_name:
+          type: string
+        first_air_date:
+          type: string
+    SearchResponse:
+      type: object
+      required: [media_results, users_results]
+      properties:
+        media_results:
+          type: array
+          items:
+            $ref: "#/components/schemas/TMDBSearchResult"
+        users_results:
+          type: array
+          items:
+            $ref: "#/components/schemas/User"
+
+    UpsertRatingRequest:
+      type: object
+      required: [media_id, rating_value]
+      properties:
+        media_id:
+          $ref: "#/components/schemas/UUID"
+        rating_value:
+          type: number
+          format: double
+          minimum: 1
+          maximum: 5
+        watched_date:
+          type:
+            - string
+            - "null"
+          format: date-time
+    Rating:
+      type: object
+      required: [media_id, user_id, rating_value, watched_date, created_at, updated_at]
+      properties:
+        media_id:
+          $ref: "#/components/schemas/UUID"
+        user_id:
+          $ref: "#/components/schemas/UUID"
+        rating_value:
+          type: number
+          format: double
+        watched_date:
+          type:
+            - string
+            - "null"
+          format: date-time
+        created_at:
+          $ref: "#/components/schemas/Timestamp"
+        updated_at:
+          $ref: "#/components/schemas/Timestamp"
+    RatingResponse:
+      type: object
+      required: [rating]
+      properties:
+        rating:
+          $ref: "#/components/schemas/Rating"
+    UserRating:
+      type: object
+      required: [media, rating]
+      properties:
+        media:
+          $ref: "#/components/schemas/Media"
+        rating:
+          $ref: "#/components/schemas/Rating"
+    UserRatingResponse:
+      type: object
+      required: [rating]
+      properties:
+        rating:
+          $ref: "#/components/schemas/UserRating"
+    UserRatingsListResponse:
+      type: object
+      required: [ratings, next_cursor]
+      properties:
+        ratings:
+          type: array
+          items:
+            $ref: "#/components/schemas/UserRating"
+        next_cursor:
+          $ref: "#/components/schemas/CursorValue"
+
+    Match:
+      type: object
+      required: [user, score, shared_media_count]
+      properties:
+        user:
+          $ref: "#/components/schemas/User"
+        score:
+          type: number
+          format: double
+        shared_media_count:
+          type: integer
+          format: int32
+    MatchesResponse:
+      type: object
+      required: [matches, next_cursor]
+      properties:
+        matches:
+          type: array
+          items:
+            $ref: "#/components/schemas/Match"
+        next_cursor:
+          $ref: "#/components/schemas/CursorValue"
+
+    Recommendations:
+      type: object
+      required: [media]
+      properties:
+        media:
+          type: array
+          items:
+            $ref: "#/components/schemas/Media"
+    RecommendationsResponse:
+      type: object
+      required: [recommendations]
+      properties:
+        recommendations:
+          $ref: "#/components/schemas/Recommendations"
+
+    ReactionType:
+      type: string
+      enum:
+        - watched_because_of_you
+        - great_pick
+        - curious
+        - hot_take
+    UpsertReactionRequest:
+      type: object
+      required: [rating_user_id, media_id, reaction]
+      properties:
+        rating_user_id:
+          $ref: "#/components/schemas/UUID"
+        media_id:
+          $ref: "#/components/schemas/UUID"
+        reaction:
+          $ref: "#/components/schemas/ReactionType"
+    ReactionUser:
+      type: object
+      required: [id, name]
+      properties:
+        id:
+          $ref: "#/components/schemas/UUID"
+        name:
+          type: string
+        profile_picture_url:
+          type: string
+    ReactionMedia:
+      type: object
+      required: [id, tmdb_id, title, original_title, poster_path, backdrop_path, media_type]
+      properties:
+        id:
+          $ref: "#/components/schemas/UUID"
+        tmdb_id:
+          type: integer
+          format: int32
+        title:
+          type: string
+        original_title:
+          type: string
+        poster_path:
+          type: string
+        backdrop_path:
+          type: string
+        media_type:
+          $ref: "#/components/schemas/MediaType"
+    ReactionRating:
+      type: object
+      required: [rating_value, watched_date, created_at, updated_at]
+      properties:
+        rating_value:
+          type: number
+          format: double
+        watched_date:
+          type:
+            - string
+            - "null"
+          format: date-time
+        created_at:
+          $ref: "#/components/schemas/Timestamp"
+        updated_at:
+          $ref: "#/components/schemas/Timestamp"
+    Reaction:
+      type: object
+      required: [id, reaction, created_at, updated_at, reactor, rating_user, media, rating]
+      properties:
+        id:
+          $ref: "#/components/schemas/UUID"
+        reaction:
+          $ref: "#/components/schemas/ReactionType"
+        created_at:
+          $ref: "#/components/schemas/Timestamp"
+        updated_at:
+          $ref: "#/components/schemas/Timestamp"
+        reactor:
+          $ref: "#/components/schemas/ReactionUser"
+        rating_user:
+          $ref: "#/components/schemas/ReactionUser"
+        media:
+          $ref: "#/components/schemas/ReactionMedia"
+        rating:
+          $ref: "#/components/schemas/ReactionRating"
+    ReactionResponse:
+      type: object
+      required: [reaction]
+      properties:
+        reaction:
+          $ref: "#/components/schemas/Reaction"
+    ReactionsListResponse:
+      type: object
+      required: [reactions, next_cursor]
+      properties:
+        reactions:
+          type: array
+          items:
+            $ref: "#/components/schemas/Reaction"
+        next_cursor:
+          $ref: "#/components/schemas/CursorValue"
+    ReactionCountResponse:
+      type: object
+      required: [reaction_count]
+      properties:
+        reaction_count:
+          type: integer
+          format: int64
+
+    ImpactReactionType:
+      type: string
+      enum: [grouped, single]
+    ImpactReaction:
+      allOf:
+        - $ref: "#/components/schemas/Reaction"
+        - type: object
+          required: [type, count, reactors]
+          properties:
+            type:
+              $ref: "#/components/schemas/ImpactReactionType"
+            reactors:
+              type: array
+              items:
+                $ref: "#/components/schemas/ReactionUser"
+            count:
+              type: integer
+    ImpactResponse:
+      type: object
+      required: [impact, next_cursor]
+      properties:
+        impact:
+          type: array
+          items:
+            $ref: "#/components/schemas/ImpactReaction"
+        next_cursor:
+          $ref: "#/components/schemas/CursorValue"
+
+    WatchlistStatus:
+      type: string
+      enum: [watched, not_watched]
+    WatchlistSource:
+      type: string
+      enum: [self, from_match]
+    InsertWatchlistRequest:
+      type: object
+      required: [media_id, source]
+      properties:
+        media_id:
+          $ref: "#/components/schemas/UUID"
+        source:
+          $ref: "#/components/schemas/WatchlistSource"
+        source_match_id:
+          type:
+            - string
+            - "null"
+          format: uuid
+    UpdateWatchlistStatusRequest:
+      type: object
+      required: [status]
+      properties:
+        status:
+          $ref: "#/components/schemas/WatchlistStatus"
+    Watchlist:
+      type: object
+      required: [user_id, media_id, created_at, status, source]
+      properties:
+        user_id:
+          $ref: "#/components/schemas/UUID"
+        media_id:
+          $ref: "#/components/schemas/UUID"
+        created_at:
+          $ref: "#/components/schemas/Timestamp"
+        status:
+          $ref: "#/components/schemas/WatchlistStatus"
+        source:
+          $ref: "#/components/schemas/WatchlistSource"
+        source_match_id:
+          type:
+            - string
+            - "null"
+          format: uuid
+    WatchlistItem:
+      type: object
+      required: [media, watchlist]
+      properties:
+        media:
+          $ref: "#/components/schemas/Media"
+        watchlist:
+          $ref: "#/components/schemas/Watchlist"
+    WatchlistResponse:
+      type: object
+      required: [watchlist]
+      properties:
+        watchlist:
+          $ref: "#/components/schemas/Watchlist"
+    WatchlistListResponse:
+      type: object
+      required: [watchlist_items, next_cursor]
+      properties:
+        watchlist_items:
+          type: array
+          items:
+            $ref: "#/components/schemas/WatchlistItem"
+        next_cursor:
+          $ref: "#/components/schemas/CursorValue"
