@@ -1,15 +1,14 @@
 package main
 
 import (
+	"context"
 	"encoding/json"
-	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"sort"
 	"strings"
 	"testing"
 
-	"github.com/google/uuid"
 	"github.com/parakliite/simila/internal/data"
 )
 
@@ -56,9 +55,8 @@ func sortedResponseRatingValues(t *testing.T, ratings []any) []float64 {
 func TestUpsertRating_ValidHalfStepRatingIsReturnedOnClientScale(t *testing.T) {
 	app := newTestApp("")
 	user := newTestUser("Alice", "alice@example.com", "password123", true)
-	mediaID := uuid.New()
 
-	body := fmt.Sprintf(`{"media_id":"%s","rating_value":4.5}`, mediaID)
+	body := `{"tmdb_id":550,"media_type":"movie","rating_value":4.5}`
 	req := httptest.NewRequest("PUT", "/api/v1/ratings", strings.NewReader(body))
 	req = withUser(req, user)
 	rr := httptest.NewRecorder()
@@ -74,9 +72,6 @@ func TestUpsertRating_ValidHalfStepRatingIsReturnedOnClientScale(t *testing.T) {
 
 	rating := resp["rating"].(map[string]any)
 	assertFloatRatingValue(t, rating["rating_value"], 4.5)
-	if rating["media_id"] != mediaID.String() {
-		t.Errorf("expected media_id %s, got %v", mediaID, rating["media_id"])
-	}
 }
 
 func TestUpsertRating_EmptyBody(t *testing.T) {
@@ -98,7 +93,7 @@ func TestUpsertRating_RatingTooHigh(t *testing.T) {
 	app := newTestApp("")
 	user := newTestUser("Alice", "alice@example.com", "password123", true)
 
-	body := fmt.Sprintf(`{"media_id":"%s","rating_value":5.5}`, uuid.New())
+	body := `{"tmdb_id":550,"media_type":"movie","rating_value":5.5}`
 	req := httptest.NewRequest("PUT", "/api/v1/ratings", strings.NewReader(body))
 	req = withUser(req, user)
 	rr := httptest.NewRecorder()
@@ -114,7 +109,23 @@ func TestUpsertRating_RatingTooLow(t *testing.T) {
 	app := newTestApp("")
 	user := newTestUser("Alice", "alice@example.com", "password123", true)
 
-	body := fmt.Sprintf(`{"media_id":"%s","rating_value":0.5}`, uuid.New())
+	body := `{"tmdb_id":550,"media_type":"movie","rating_value":0.5}`
+	req := httptest.NewRequest("PUT", "/api/v1/ratings", strings.NewReader(body))
+	req = withUser(req, user)
+	rr := httptest.NewRecorder()
+
+	app.upsertRatingHandler(rr, req)
+
+	if rr.Code != http.StatusUnprocessableEntity {
+		t.Fatalf("expected 422, got %d: %s", rr.Code, rr.Body.String())
+	}
+}
+
+func TestUpsertRating_InvalidMediaType(t *testing.T) {
+	app := newTestApp("")
+	user := newTestUser("Alice", "alice@example.com", "password123", true)
+
+	body := `{"tmdb_id":550,"media_type":"podcast","rating_value":4.0}`
 	req := httptest.NewRequest("PUT", "/api/v1/ratings", strings.NewReader(body))
 	req = withUser(req, user)
 	rr := httptest.NewRecorder()
@@ -129,10 +140,9 @@ func TestUpsertRating_RatingTooLow(t *testing.T) {
 func TestDeleteRating_NonExistentMapsToNotFound(t *testing.T) {
 	app := newTestApp("")
 	user := newTestUser("Alice", "alice@example.com", "password123", true)
-	mediaID := uuid.New()
 
-	req := httptest.NewRequest("DELETE", "/api/v1/ratings/"+mediaID.String(), nil)
-	req.SetPathValue("media_id", mediaID.String())
+	req := httptest.NewRequest("DELETE", "/api/v1/ratings/tmdb/550?type=movie", nil)
+	req.SetPathValue("tmdb_id", "550")
 	req = withUser(req, user)
 	rr := httptest.NewRecorder()
 
@@ -143,12 +153,12 @@ func TestDeleteRating_NonExistentMapsToNotFound(t *testing.T) {
 	}
 }
 
-func TestDeleteRating_InvalidMediaID(t *testing.T) {
+func TestDeleteRating_InvalidTmdbID(t *testing.T) {
 	app := newTestApp("")
 	user := newTestUser("Alice", "alice@example.com", "password123", true)
 
-	req := httptest.NewRequest("DELETE", "/api/v1/ratings/not-a-uuid", nil)
-	req.SetPathValue("media_id", "not-a-uuid")
+	req := httptest.NewRequest("DELETE", "/api/v1/ratings/tmdb/not-a-number", nil)
+	req.SetPathValue("tmdb_id", "not-a-number")
 	req = withUser(req, user)
 	rr := httptest.NewRecorder()
 
@@ -162,15 +172,18 @@ func TestDeleteRating_InvalidMediaID(t *testing.T) {
 func TestGetRating_ExistingReturnsTranslatedRatingValue(t *testing.T) {
 	app := newTestApp("")
 	user := newTestUser("Alice", "alice@example.com", "password123", true)
-	mediaID := uuid.New()
 
 	mock := app.models.Ratings.(*mockRatingModel)
-	mock.ratings[ratingKey(user.ID, mediaID)] = data.UserRating{
-		Rating: data.Rating{UserID: user.ID, MediaID: mediaID, RatingValue: 7},
+	mediaUUID, err := app.models.Movies.GetOrCreateMediaByTmdbID(context.Background(), 550, "movie")
+	if err != nil {
+		t.Fatalf("failed to get or create media: %v", err)
+	}
+	mock.ratings[ratingKey(user.ID, mediaUUID)] = data.UserRating{
+		Rating: data.Rating{UserID: user.ID, MediaID: mediaUUID, RatingValue: 7},
 	}
 
-	req := httptest.NewRequest("GET", "/api/v1/ratings/"+mediaID.String(), nil)
-	req.SetPathValue("media_id", mediaID.String())
+	req := httptest.NewRequest("GET", "/api/v1/ratings/tmdb/550?type=movie", nil)
+	req.SetPathValue("tmdb_id", "550")
 	req = withUser(req, user)
 	rr := httptest.NewRecorder()
 
@@ -191,10 +204,9 @@ func TestGetRating_ExistingReturnsTranslatedRatingValue(t *testing.T) {
 func TestGetRating_NonExistentMapsToNotFound(t *testing.T) {
 	app := newTestApp("")
 	user := newTestUser("Alice", "alice@example.com", "password123", true)
-	mediaID := uuid.New()
 
-	req := httptest.NewRequest("GET", "/api/v1/ratings/"+mediaID.String(), nil)
-	req.SetPathValue("media_id", mediaID.String())
+	req := httptest.NewRequest("GET", "/api/v1/ratings/tmdb/550?type=movie", nil)
+	req.SetPathValue("tmdb_id", "550")
 	req = withUser(req, user)
 	rr := httptest.NewRecorder()
 
@@ -205,12 +217,12 @@ func TestGetRating_NonExistentMapsToNotFound(t *testing.T) {
 	}
 }
 
-func TestGetRating_InvalidMediaID(t *testing.T) {
+func TestGetRating_InvalidTmdbID(t *testing.T) {
 	app := newTestApp("")
 	user := newTestUser("Alice", "alice@example.com", "password123", true)
 
-	req := httptest.NewRequest("GET", "/api/v1/ratings/not-a-uuid", nil)
-	req.SetPathValue("media_id", "not-a-uuid")
+	req := httptest.NewRequest("GET", "/api/v1/ratings/tmdb/not-a-number", nil)
+	req.SetPathValue("tmdb_id", "not-a-number")
 	req = withUser(req, user)
 	rr := httptest.NewRecorder()
 
@@ -227,15 +239,20 @@ func TestListRatings_ReturnsTranslatedUserRatings(t *testing.T) {
 
 	mock := app.models.Ratings.(*mockRatingModel)
 	for _, tc := range []struct {
-		mediaID      uuid.UUID
+		tmdbID       int32
+		mediaType    string
 		storedRating float64
 	}{
-		{mediaID: uuid.New(), storedRating: 10},
-		{mediaID: uuid.New(), storedRating: 9},
-		{mediaID: uuid.New(), storedRating: 7},
+		{tmdbID: 100, mediaType: "movie", storedRating: 10},
+		{tmdbID: 200, mediaType: "movie", storedRating: 9},
+		{tmdbID: 300, mediaType: "movie", storedRating: 7},
 	} {
-		mock.ratings[ratingKey(user.ID, tc.mediaID)] = data.UserRating{
-			Rating: data.Rating{UserID: user.ID, MediaID: tc.mediaID, RatingValue: tc.storedRating},
+		mediaID, err := app.models.Movies.GetOrCreateMediaByTmdbID(context.Background(), tc.tmdbID, tc.mediaType)
+		if err != nil {
+			t.Fatalf("failed to get or create media: %v", err)
+		}
+		mock.ratings[ratingKey(user.ID, mediaID)] = data.UserRating{
+			Rating: data.Rating{UserID: user.ID, MediaID: mediaID, RatingValue: tc.storedRating},
 		}
 	}
 
@@ -265,23 +282,28 @@ func TestListRatings_ReturnsTranslatedUserRatings(t *testing.T) {
 func TestListRatingsForMedia_ReturnsTranslatedRatings(t *testing.T) {
 	app := newTestApp("")
 	user := newTestUser("Alice", "alice@example.com", "password123", true)
-	mediaID := uuid.New()
 
 	mock := app.models.Ratings.(*mockRatingModel)
+	mediaID, err := app.models.Movies.GetOrCreateMediaByTmdbID(context.Background(), 550, "movie")
+	if err != nil {
+		t.Fatalf("failed to get or create media: %v", err)
+	}
 	for _, tc := range []struct {
-		userID       uuid.UUID
+		userName     string
 		storedRating float64
 	}{
-		{userID: uuid.New(), storedRating: 8},
-		{userID: uuid.New(), storedRating: 3},
+		{userName: "Bob", storedRating: 8},
+		{userName: "Carol", storedRating: 3},
 	} {
-		mock.ratings[ratingKey(tc.userID, mediaID)] = data.UserRating{
-			Rating: data.Rating{UserID: tc.userID, MediaID: mediaID, RatingValue: tc.storedRating},
+		otherUser := newTestUser(tc.userName, tc.userName+"@example.com", "password123", true)
+		seedUser(app, otherUser)
+		mock.ratings[ratingKey(otherUser.ID, mediaID)] = data.UserRating{
+			Rating: data.Rating{UserID: otherUser.ID, MediaID: mediaID, RatingValue: tc.storedRating},
 		}
 	}
 
-	req := httptest.NewRequest("GET", "/api/v1/media/"+mediaID.String()+"/ratings", nil)
-	req.SetPathValue("media_id", mediaID.String())
+	req := httptest.NewRequest("GET", "/api/v1/media/tmdb/550/ratings?type=movie", nil)
+	req.SetPathValue("tmdb_id", "550")
 	req = withUser(req, user)
 	rr := httptest.NewRecorder()
 
@@ -304,12 +326,12 @@ func TestListRatingsForMedia_ReturnsTranslatedRatings(t *testing.T) {
 	}
 }
 
-func TestListRatingsForMedia_InvalidMediaID(t *testing.T) {
+func TestListRatingsForMedia_InvalidTmdbID(t *testing.T) {
 	app := newTestApp("")
 	user := newTestUser("Alice", "alice@example.com", "password123", true)
 
-	req := httptest.NewRequest("GET", "/api/v1/media/not-a-uuid/ratings", nil)
-	req.SetPathValue("media_id", "not-a-uuid")
+	req := httptest.NewRequest("GET", "/api/v1/media/tmdb/not-a-number/ratings", nil)
+	req.SetPathValue("tmdb_id", "not-a-number")
 	req = withUser(req, user)
 	rr := httptest.NewRecorder()
 

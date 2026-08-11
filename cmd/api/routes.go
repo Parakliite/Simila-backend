@@ -34,12 +34,17 @@ func (app *application) routes() http.Handler {
 		app.authenticate(http.HandlerFunc(app.requireActivatedUser(app.upsertRatingHandler))))
 	mux.Handle("GET /api/v1/ratings",
 		app.authenticate(http.HandlerFunc(app.requireActivatedUser(app.listRatingsHandler))))
-	mux.Handle("GET /api/v1/ratings/{media_id}",
+	mux.Handle("GET /api/v1/ratings/tmdb/{tmdb_id}",
 		app.authenticate(http.HandlerFunc(app.requireActivatedUser(app.getRatingHandler))))
-	mux.Handle("DELETE /api/v1/ratings/{media_id}",
+	mux.Handle("DELETE /api/v1/ratings/tmdb/{tmdb_id}",
 		app.authenticate(http.HandlerFunc(app.requireActivatedUser(app.deleteRatingHandler))))
-	mux.Handle("GET /api/v1/media/{media_id}/ratings",
+	mux.Handle("GET /api/v1/media/tmdb/{tmdb_id}/ratings",
 		app.authenticate(http.HandlerFunc(app.requireActivatedUser(app.listRatingsForMedia))))
+
+	mux.Handle("GET /api/v1/home/top-rated-by-matches",
+		app.authenticate(http.HandlerFunc(app.requireActivatedUser(app.getTopRatedByMatchesHandler))))
+	mux.Handle("GET /api/v1/home/trending",
+		app.authenticate(http.HandlerFunc(app.requireActivatedUser(app.getTrendingHandler))))
 
 	mux.Handle("GET /api/v1/matches",
 		app.authenticate(http.HandlerFunc(app.requireActivatedUser(app.listMatchesHandler))))
@@ -49,11 +54,11 @@ func (app *application) routes() http.Handler {
 
 	mux.Handle("PUT /api/v1/reactions",
 		app.authenticate(http.HandlerFunc(app.requireActivatedUser(app.upsertReactionHandler))))
-	mux.Handle("DELETE /api/v1/reactions/{rating_user_id}/{media_id}",
+	mux.Handle("DELETE /api/v1/reactions/{rating_user_id}/tmdb/{tmdb_id}",
 		app.authenticate(http.HandlerFunc(app.requireActivatedUser(app.deleteReactionHandler))))
 	mux.Handle("GET /api/v1/users/{user_id}/reactions",
 		app.authenticate(http.HandlerFunc(app.requireActivatedUser(app.listUserReactionsHandler))))
-	mux.Handle("GET /api/v1/ratings/{rating_user_id}/{media_id}/reactions/count",
+	mux.Handle("GET /api/v1/ratings/{rating_user_id}/tmdb/{tmdb_id}/reactions/count",
 		app.authenticate(http.HandlerFunc(app.requireActivatedUser(app.getReactionCountForRatingHandler))))
 
 	mux.Handle("GET /api/v1/impact/{user_id}",
@@ -63,9 +68,9 @@ func (app *application) routes() http.Handler {
 		app.authenticate(http.HandlerFunc(app.requireActivatedUser(app.insertToWatchlistHandler))))
 	mux.Handle("GET /api/v1/watchlist",
 		app.authenticate(http.HandlerFunc(app.requireActivatedUser(app.listWatchlistItemsHandler))))
-	mux.Handle("PATCH /api/v1/watchlist/{media_id}",
+	mux.Handle("PATCH /api/v1/watchlist/tmdb/{tmdb_id}",
 		app.authenticate(http.HandlerFunc(app.requireActivatedUser(app.updateWatchlistStatusHandler))))
-	mux.Handle("DELETE /api/v1/watchlist/{media_id}",
+	mux.Handle("DELETE /api/v1/watchlist/tmdb/{tmdb_id}",
 		app.authenticate(http.HandlerFunc(app.requireActivatedUser(app.deleteWatchlistItemHandler))))
 
 	mux.HandleFunc("/", app.notFoundResponse)

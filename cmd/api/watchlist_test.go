@@ -2,21 +2,17 @@ package main
 
 import (
 	"encoding/json"
-	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"strings"
 	"testing"
-
-	"github.com/google/uuid"
 )
 
 func TestInsertToWatchlist_ValidInputReturnsDefaultStatus(t *testing.T) {
 	app := newTestApp("")
 	user := newTestUser("Alice", "alice@example.com", "password123", true)
-	mediaID := uuid.New()
 
-	body := fmt.Sprintf(`{"media_id":"%s","source":"self"}`, mediaID)
+	body := `{"tmdb_id":550,"media_type":"movie","source":"self"}`
 	req := httptest.NewRequest("POST", "/api/v1/watchlist", strings.NewReader(body))
 	req = withUser(req, user)
 	rr := httptest.NewRecorder()
@@ -31,9 +27,6 @@ func TestInsertToWatchlist_ValidInputReturnsDefaultStatus(t *testing.T) {
 	json.Unmarshal(rr.Body.Bytes(), &resp)
 
 	watchlist := resp["watchlist"].(map[string]any)
-	if watchlist["media_id"] != mediaID.String() {
-		t.Fatalf("expected media_id %s, got %v", mediaID, watchlist["media_id"])
-	}
 	if watchlist["status"] != "not_watched" {
 		t.Fatalf("expected default status not_watched, got %v", watchlist["status"])
 	}
@@ -43,7 +36,7 @@ func TestInsertToWatchlist_FromMatchRequiresSourceMatchID(t *testing.T) {
 	app := newTestApp("")
 	user := newTestUser("Alice", "alice@example.com", "password123", true)
 
-	body := fmt.Sprintf(`{"media_id":"%s","source":"from_match"}`, uuid.New())
+	body := `{"tmdb_id":550,"media_type":"movie","source":"from_match"}`
 	req := httptest.NewRequest("POST", "/api/v1/watchlist", strings.NewReader(body))
 	req = withUser(req, user)
 	rr := httptest.NewRecorder()
@@ -59,7 +52,7 @@ func TestInsertToWatchlist_InvalidSource(t *testing.T) {
 	app := newTestApp("")
 	user := newTestUser("Alice", "alice@example.com", "password123", true)
 
-	body := fmt.Sprintf(`{"media_id":"%s","source":"friend"}`, uuid.New())
+	body := `{"tmdb_id":550,"media_type":"movie","source":"friend"}`
 	req := httptest.NewRequest("POST", "/api/v1/watchlist", strings.NewReader(body))
 	req = withUser(req, user)
 	rr := httptest.NewRecorder()
@@ -74,10 +67,9 @@ func TestInsertToWatchlist_InvalidSource(t *testing.T) {
 func TestUpdateWatchlistStatus_InvalidStatus(t *testing.T) {
 	app := newTestApp("")
 	user := newTestUser("Alice", "alice@example.com", "password123", true)
-	mediaID := uuid.New()
 
-	req := httptest.NewRequest("PATCH", "/api/v1/watchlist/"+mediaID.String(), strings.NewReader(`{"status":"queued"}`))
-	req.SetPathValue("media_id", mediaID.String())
+	req := httptest.NewRequest("PATCH", "/api/v1/watchlist/tmdb/550?type=movie", strings.NewReader(`{"status":"queued"}`))
+	req.SetPathValue("tmdb_id", "550")
 	req = withUser(req, user)
 	rr := httptest.NewRecorder()
 
@@ -91,10 +83,9 @@ func TestUpdateWatchlistStatus_InvalidStatus(t *testing.T) {
 func TestDeleteWatchlistItem_NonExistentMapsToNotFound(t *testing.T) {
 	app := newTestApp("")
 	user := newTestUser("Alice", "alice@example.com", "password123", true)
-	mediaID := uuid.New()
 
-	req := httptest.NewRequest("DELETE", "/api/v1/watchlist/"+mediaID.String(), nil)
-	req.SetPathValue("media_id", mediaID.String())
+	req := httptest.NewRequest("DELETE", "/api/v1/watchlist/tmdb/550?type=movie", nil)
+	req.SetPathValue("tmdb_id", "550")
 	req = withUser(req, user)
 	rr := httptest.NewRecorder()
 

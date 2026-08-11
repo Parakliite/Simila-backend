@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
+	"strconv"
 	"time"
 
 	"github.com/google/uuid"
@@ -16,7 +17,8 @@ func (app *application) insertToWatchlistHandler(w http.ResponseWriter, req *htt
 	user := app.contextGetUser(req)
 
 	var input struct {
-		MediaID       uuid.UUID  `json:"media_id"`
+		TmdbID        int32      `json:"tmdb_id"`
+		MediaType     string     `json:"media_type"`
 		Source        string     `json:"source"`
 		SourceMatchID *uuid.UUID `json:"source_match_id,omitempty"`
 	}
@@ -28,8 +30,11 @@ func (app *application) insertToWatchlistHandler(w http.ResponseWriter, req *htt
 	}
 
 	v := validator.New()
-	if input.MediaID == uuid.Nil {
-		v.AddError("media_id", "must be provided")
+	if input.TmdbID <= 0 {
+		v.AddError("tmdb_id", "must be a positive integer")
+	}
+	if input.MediaType != "movie" && input.MediaType != "tv" {
+		v.AddError("media_type", "must be 'movie' or 'tv'")
 	}
 	data.ValidateWatchlistSource(v, input.Source)
 	if input.Source == string(database.SourceTypeFromMatch) && input.SourceMatchID == nil {
@@ -43,9 +48,15 @@ func (app *application) insertToWatchlistHandler(w http.ResponseWriter, req *htt
 		return
 	}
 
+	mediaID, err := app.models.Movies.GetOrCreateMediaByTmdbID(req.Context(), input.TmdbID, input.MediaType)
+	if err != nil {
+		app.serverErrorResponse(w, req, err)
+		return
+	}
+
 	watchlist, err := app.models.Watchlist.InsertMediaToWatchlist(req.Context(), data.Watchlist{
 		UserID:        user.ID,
-		MediaID:       input.MediaID,
+		MediaID:       mediaID,
 		Source:        input.Source,
 		SourceMatchID: input.SourceMatchID,
 	})
@@ -63,9 +74,21 @@ func (app *application) insertToWatchlistHandler(w http.ResponseWriter, req *htt
 func (app *application) updateWatchlistStatusHandler(w http.ResponseWriter, req *http.Request) {
 	user := app.contextGetUser(req)
 
-	mediaID, err := uuid.Parse(req.PathValue("media_id"))
+	tmdbID, err := strconv.ParseInt(req.PathValue("tmdb_id"), 10, 32)
+	if err != nil || tmdbID < 1 {
+		app.badRequestResponse(w, req, fmt.Errorf("invalid tmdb_id"))
+		return
+	}
+
+	mediaType := req.URL.Query().Get("type")
+	if mediaType != "movie" && mediaType != "tv" {
+		app.badRequestResponse(w, req, fmt.Errorf("type parameter must be 'movie' or 'tv'"))
+		return
+	}
+
+	mediaID, err := app.models.Movies.GetOrCreateMediaByTmdbID(req.Context(), int32(tmdbID), mediaType)
 	if err != nil {
-		app.badRequestResponse(w, req, fmt.Errorf("invalid media_id"))
+		app.serverErrorResponse(w, req, err)
 		return
 	}
 
@@ -111,9 +134,21 @@ func (app *application) updateWatchlistStatusHandler(w http.ResponseWriter, req 
 func (app *application) deleteWatchlistItemHandler(w http.ResponseWriter, req *http.Request) {
 	user := app.contextGetUser(req)
 
-	mediaID, err := uuid.Parse(req.PathValue("media_id"))
+	tmdbID, err := strconv.ParseInt(req.PathValue("tmdb_id"), 10, 32)
+	if err != nil || tmdbID < 1 {
+		app.badRequestResponse(w, req, fmt.Errorf("invalid tmdb_id"))
+		return
+	}
+
+	mediaType := req.URL.Query().Get("type")
+	if mediaType != "movie" && mediaType != "tv" {
+		app.badRequestResponse(w, req, fmt.Errorf("type parameter must be 'movie' or 'tv'"))
+		return
+	}
+
+	mediaID, err := app.models.Movies.GetOrCreateMediaByTmdbID(req.Context(), int32(tmdbID), mediaType)
 	if err != nil {
-		app.badRequestResponse(w, req, fmt.Errorf("invalid media_id"))
+		app.serverErrorResponse(w, req, err)
 		return
 	}
 

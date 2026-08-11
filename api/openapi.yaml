@@ -21,6 +21,7 @@ tags:
   - name: Reactions
   - name: Impact
   - name: Watchlist
+  - name: Home
 
 paths:
   /api/v1/health:
@@ -304,12 +305,13 @@ paths:
         "500":
           $ref: "#/components/responses/ServerError"
 
-  /api/v1/ratings/{media_id}:
+  /api/v1/ratings/tmdb/{tmdb_id}:
     get:
       tags: [Ratings]
       summary: Get the authenticated user's rating for one media item
       parameters:
-        - $ref: "#/components/parameters/MediaID"
+        - $ref: "#/components/parameters/TMDBID"
+        - $ref: "#/components/parameters/MediaTypeQuery"
       responses:
         "200":
           description: User rating
@@ -331,7 +333,8 @@ paths:
       tags: [Ratings]
       summary: Delete the authenticated user's rating for one media item
       parameters:
-        - $ref: "#/components/parameters/MediaID"
+        - $ref: "#/components/parameters/TMDBID"
+        - $ref: "#/components/parameters/MediaTypeQuery"
       responses:
         "204":
           description: Rating deleted
@@ -346,12 +349,13 @@ paths:
         "500":
           $ref: "#/components/responses/ServerError"
 
-  /api/v1/media/{media_id}/ratings:
+  /api/v1/media/tmdb/{tmdb_id}/ratings:
     get:
       tags: [Ratings]
       summary: List ratings for a media item
       parameters:
-        - $ref: "#/components/parameters/MediaID"
+        - $ref: "#/components/parameters/TMDBID"
+        - $ref: "#/components/parameters/MediaTypeQuery"
         - $ref: "#/components/parameters/ListLimit"
         - $ref: "#/components/parameters/Cursor"
       responses:
@@ -392,6 +396,65 @@ paths:
                 $ref: "#/components/schemas/MatchesResponse"
         "400":
           $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "500":
+          $ref: "#/components/responses/ServerError"
+
+  /api/v1/home/top-rated-by-matches:
+    get:
+      tags: [Home]
+      summary: Top rated media from your matches
+      description: |
+        Returns media rated highly by your matches within the past 14 days.
+        Results are deduplicated by media and ordered by rating value,
+        then match score, then recency.
+      parameters:
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            default: 10
+            minimum: 1
+            maximum: 20
+      responses:
+        "200":
+          description: Top rated by matches
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TopRatedByMatchesResponse"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "500":
+          $ref: "#/components/responses/ServerError"
+
+  /api/v1/home/trending:
+    get:
+      tags: [Home]
+      summary: Trending movies and TV shows this week
+      description: |
+        Returns the current trending movies and TV shows from TMDB.
+        Does not persist data; purely ephemeral.
+      parameters:
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            default: 10
+            minimum: 1
+            maximum: 20
+      responses:
+        "200":
+          description: Trending media
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TrendingResponse"
         "401":
           $ref: "#/components/responses/Unauthorized"
         "403":
@@ -456,7 +519,7 @@ paths:
         "500":
           $ref: "#/components/responses/ServerError"
 
-  /api/v1/reactions/{rating_user_id}/{media_id}:
+  /api/v1/reactions/{rating_user_id}/tmdb/{tmdb_id}:
     delete:
       tags: [Reactions]
       summary: Delete a reaction
@@ -467,7 +530,8 @@ paths:
           schema:
             type: string
             format: uuid
-        - $ref: "#/components/parameters/MediaID"
+        - $ref: "#/components/parameters/TMDBID"
+        - $ref: "#/components/parameters/MediaTypeQuery"
       responses:
         "204":
           description: Reaction deleted
@@ -506,7 +570,7 @@ paths:
         "500":
           $ref: "#/components/responses/ServerError"
 
-  /api/v1/ratings/{rating_user_id}/{media_id}/reactions/count:
+  /api/v1/ratings/{rating_user_id}/tmdb/{tmdb_id}/reactions/count:
     get:
       tags: [Reactions]
       summary: Get reaction count for a rating
@@ -517,7 +581,8 @@ paths:
           schema:
             type: string
             format: uuid
-        - $ref: "#/components/parameters/MediaID"
+        - $ref: "#/components/parameters/TMDBID"
+        - $ref: "#/components/parameters/MediaTypeQuery"
       responses:
         "200":
           description: Reaction count
@@ -611,12 +676,13 @@ paths:
         "500":
           $ref: "#/components/responses/ServerError"
 
-  /api/v1/watchlist/{media_id}:
+  /api/v1/watchlist/tmdb/{tmdb_id}:
     patch:
       tags: [Watchlist]
       summary: Update a watchlist item's status
       parameters:
-        - $ref: "#/components/parameters/MediaID"
+        - $ref: "#/components/parameters/TMDBID"
+        - $ref: "#/components/parameters/MediaTypeQuery"
       requestBody:
         required: true
         content:
@@ -646,7 +712,8 @@ paths:
       tags: [Watchlist]
       summary: Delete a watchlist item
       parameters:
-        - $ref: "#/components/parameters/MediaID"
+        - $ref: "#/components/parameters/TMDBID"
+        - $ref: "#/components/parameters/MediaTypeQuery"
       responses:
         "204":
           description: Watchlist item deleted
@@ -713,6 +780,13 @@ components:
         default: 10
         minimum: 1
         maximum: 70
+    MediaTypeQuery:
+      name: type
+      in: query
+      required: true
+      schema:
+        $ref: "#/components/schemas/MediaType"
+      description: Media type filter - 'movie' or 'tv'.
 
   responses:
     BadRequest:
@@ -1008,10 +1082,14 @@ components:
 
     UpsertRatingRequest:
       type: object
-      required: [media_id, rating_value]
+      required: [tmdb_id, media_type, rating_value]
       properties:
-        media_id:
-          $ref: "#/components/schemas/UUID"
+        tmdb_id:
+          type: integer
+          format: int32
+          minimum: 1
+        media_type:
+          $ref: "#/components/schemas/MediaType"
         rating_value:
           type: number
           format: double
@@ -1120,12 +1198,16 @@ components:
         - hot_take
     UpsertReactionRequest:
       type: object
-      required: [rating_user_id, media_id, reaction]
+      required: [rating_user_id, tmdb_id, media_type, reaction]
       properties:
         rating_user_id:
           $ref: "#/components/schemas/UUID"
-        media_id:
-          $ref: "#/components/schemas/UUID"
+        tmdb_id:
+          type: integer
+          format: int32
+          minimum: 1
+        media_type:
+          $ref: "#/components/schemas/MediaType"
         reaction:
           $ref: "#/components/schemas/ReactionType"
     ReactionUser:
@@ -1253,10 +1335,14 @@ components:
       enum: [self, from_match]
     InsertWatchlistRequest:
       type: object
-      required: [media_id, source]
+      required: [tmdb_id, media_type, source]
       properties:
-        media_id:
-          $ref: "#/components/schemas/UUID"
+        tmdb_id:
+          type: integer
+          format: int32
+          minimum: 1
+        media_type:
+          $ref: "#/components/schemas/MediaType"
         source:
           $ref: "#/components/schemas/WatchlistSource"
         source_match_id:
@@ -1313,3 +1399,54 @@ components:
             $ref: "#/components/schemas/WatchlistItem"
         next_cursor:
           $ref: "#/components/schemas/CursorValue"
+
+    MatchRatedMedia:
+      type: object
+      required: [media, match_user, match_score, rating]
+      properties:
+        media:
+          $ref: "#/components/schemas/Media"
+        match_user:
+          $ref: "#/components/schemas/User"
+        match_score:
+          type: number
+          format: double
+        rating:
+          $ref: "#/components/schemas/Rating"
+    TopRatedByMatchesResponse:
+      type: object
+      required: [top_rated_by_matches]
+      properties:
+        top_rated_by_matches:
+          type: array
+          items:
+            $ref: "#/components/schemas/MatchRatedMedia"
+
+    TrendingResult:
+      type: object
+      required: [tmdb_id, title, poster_path, media_type]
+      properties:
+        tmdb_id:
+          type: integer
+          format: int32
+        title:
+          type: string
+        poster_path:
+          type: string
+        media_type:
+          $ref: "#/components/schemas/MediaType"
+        overview:
+          type: string
+        vote_average:
+          type: number
+          format: double
+        release_date:
+          type: string
+    TrendingResponse:
+      type: object
+      required: [trending]
+      properties:
+        trending:
+          type: array
+          items:
+            $ref: "#/components/schemas/TrendingResult"

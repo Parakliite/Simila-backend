@@ -3,6 +3,7 @@ package main
 import (
 	"fmt"
 	"net/http"
+	"strconv"
 	"time"
 
 	"github.com/google/uuid"
@@ -16,7 +17,8 @@ func (app *application) upsertReactionHandler(w http.ResponseWriter, req *http.R
 
 	var input struct {
 		RatingUserID uuid.UUID `json:"rating_user_id"`
-		MediaID      uuid.UUID `json:"media_id"`
+		TmdbID       int32     `json:"tmdb_id"`
+		MediaType    string    `json:"media_type"`
 		Reaction     string    `json:"reaction"`
 	}
 
@@ -31,18 +33,27 @@ func (app *application) upsertReactionHandler(w http.ResponseWriter, req *http.R
 	if input.RatingUserID == uuid.Nil {
 		v.AddError("rating_user_id", "must be provided")
 	}
-	if input.MediaID == uuid.Nil {
-		v.AddError("media_id", "must be provided")
+	if input.TmdbID <= 0 {
+		v.AddError("tmdb_id", "must be a positive integer")
+	}
+	if input.MediaType != "movie" && input.MediaType != "tv" {
+		v.AddError("media_type", "must be 'movie' or 'tv'")
 	}
 	if !v.Valid() {
 		app.failedValidationResponse(w, req, v.Errors)
 		return
 	}
 
+	mediaID, err := app.models.Movies.GetOrCreateMediaByTmdbID(req.Context(), input.TmdbID, input.MediaType)
+	if err != nil {
+		app.serverErrorResponse(w, req, err)
+		return
+	}
+
 	reaction, err := app.models.Reactions.UpsertReaction(req.Context(), data.Reaction{
 		ReactorUserID: user.ID,
 		RatingUserID:  input.RatingUserID,
-		MediaID:       input.MediaID,
+		MediaID:       mediaID,
 		Reaction:      database.ReactionType(input.Reaction),
 	})
 	if err != nil {
@@ -65,9 +76,21 @@ func (app *application) deleteReactionHandler(w http.ResponseWriter, req *http.R
 		return
 	}
 
-	mediaID, err := uuid.Parse(req.PathValue("media_id"))
+	tmdbID, err := strconv.ParseInt(req.PathValue("tmdb_id"), 10, 32)
+	if err != nil || tmdbID < 1 {
+		app.badRequestResponse(w, req, fmt.Errorf("invalid tmdb_id"))
+		return
+	}
+
+	mediaType := req.URL.Query().Get("type")
+	if mediaType != "movie" && mediaType != "tv" {
+		app.badRequestResponse(w, req, fmt.Errorf("type parameter must be 'movie' or 'tv'"))
+		return
+	}
+
+	mediaID, err := app.models.Movies.GetOrCreateMediaByTmdbID(req.Context(), int32(tmdbID), mediaType)
 	if err != nil {
-		app.badRequestResponse(w, req, fmt.Errorf("invalid media_id"))
+		app.serverErrorResponse(w, req, err)
 		return
 	}
 
@@ -146,9 +169,21 @@ func (app *application) getReactionCountForRatingHandler(w http.ResponseWriter, 
 		return
 	}
 
-	mediaID, err := uuid.Parse(req.PathValue("media_id"))
+	tmdbID, err := strconv.ParseInt(req.PathValue("tmdb_id"), 10, 32)
+	if err != nil || tmdbID < 1 {
+		app.badRequestResponse(w, req, fmt.Errorf("invalid tmdb_id"))
+		return
+	}
+
+	mediaType := req.URL.Query().Get("type")
+	if mediaType != "movie" && mediaType != "tv" {
+		app.badRequestResponse(w, req, fmt.Errorf("type parameter must be 'movie' or 'tv'"))
+		return
+	}
+
+	mediaID, err := app.models.Movies.GetOrCreateMediaByTmdbID(req.Context(), int32(tmdbID), mediaType)
 	if err != nil {
-		app.badRequestResponse(w, req, fmt.Errorf("invalid media_id"))
+		app.serverErrorResponse(w, req, err)
 		return
 	}
 

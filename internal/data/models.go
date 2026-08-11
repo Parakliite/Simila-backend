@@ -11,6 +11,7 @@ import (
 
 type MediaQuerier interface {
 	GetMedia(ctx context.Context, id int32, mediaType string) (*Media, error)
+	GetOrCreateMediaByTmdbID(ctx context.Context, tmdbID int32, mediaType string) (uuid.UUID, error)
 	InsertMedia(ctx context.Context, media *Media) error
 }
 
@@ -122,6 +123,10 @@ type RecommendationsQuerier interface {
 	) (Recommendations, error)
 }
 
+type HomeQuerier interface {
+	GetTopRatedByMatches(ctx context.Context, userID uuid.UUID, limit int32) ([]MatchRatedMedia, error)
+}
+
 type Models struct {
 	Movies          MediaQuerier
 	Users           UserQuerier
@@ -132,6 +137,7 @@ type Models struct {
 	Watchlist       WatchlistQuerier
 	Discovery       DiscoveryQuerier
 	Recommendations RecommendationsQuerier
+	Home            HomeQuerier
 }
 
 func NewModels(db *sql.DB) Models {
@@ -171,6 +177,10 @@ func NewModels(db *sql.DB) Models {
 			q:  dbQueries,
 		},
 		Recommendations: RecommendationModel{
+			DB: db,
+			q:  dbQueries,
+		},
+		Home: HomeModel{
 			DB: db,
 			q:  dbQueries,
 		},

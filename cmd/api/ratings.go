@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
+	"strconv"
 	"time"
 
 	"github.com/google/uuid"
@@ -14,7 +15,8 @@ import (
 func (app *application) upsertRatingHandler(w http.ResponseWriter, req *http.Request) {
 	user := app.contextGetUser(req)
 	var input struct {
-		MediaID     uuid.UUID  `json:"media_id"`
+		TmdbID      int32      `json:"tmdb_id"`
+		MediaType   string     `json:"media_type"`
 		RatingValue float64    `json:"rating_value"`
 		WatchedDate *time.Time `json:"watched_date,omitempty"`
 	}
@@ -26,13 +28,29 @@ func (app *application) upsertRatingHandler(w http.ResponseWriter, req *http.Req
 	}
 
 	v := validator.New()
+	if input.TmdbID <= 0 {
+		v.AddError("tmdb_id", "must be a positive integer")
+	}
+	if input.MediaType != "movie" && input.MediaType != "tv" {
+		v.AddError("media_type", "must be 'movie' or 'tv'")
+	}
 	if data.ValidateRatingValue(v, input.RatingValue); !v.Valid() {
 		app.failedValidationResponse(w, req, v.Errors)
 		return
 	}
+	if !v.Valid() {
+		app.failedValidationResponse(w, req, v.Errors)
+		return
+	}
+
+	mediaID, err := app.models.Movies.GetOrCreateMediaByTmdbID(req.Context(), input.TmdbID, input.MediaType)
+	if err != nil {
+		app.serverErrorResponse(w, req, err)
+		return
+	}
 
 	rating, err := app.models.Ratings.UpsertUserRating(req.Context(), data.Rating{
-		MediaID:     input.MediaID,
+		MediaID:     mediaID,
 		UserID:      user.ID,
 		RatingValue: input.RatingValue,
 		WatchedDate: input.WatchedDate,
@@ -51,9 +69,21 @@ func (app *application) upsertRatingHandler(w http.ResponseWriter, req *http.Req
 func (app *application) deleteRatingHandler(w http.ResponseWriter, req *http.Request) {
 	user := app.contextGetUser(req)
 
-	mediaID, err := uuid.Parse(req.PathValue("media_id"))
+	tmdbID, err := strconv.ParseInt(req.PathValue("tmdb_id"), 10, 32)
+	if err != nil || tmdbID < 1 {
+		app.badRequestResponse(w, req, fmt.Errorf("invalid tmdb_id"))
+		return
+	}
+
+	mediaType := req.URL.Query().Get("type")
+	if mediaType != "movie" && mediaType != "tv" {
+		app.badRequestResponse(w, req, fmt.Errorf("type parameter must be 'movie' or 'tv'"))
+		return
+	}
+
+	mediaID, err := app.models.Movies.GetOrCreateMediaByTmdbID(req.Context(), int32(tmdbID), mediaType)
 	if err != nil {
-		app.badRequestResponse(w, req, fmt.Errorf("invalid media_id"))
+		app.serverErrorResponse(w, req, err)
 		return
 	}
 
@@ -127,9 +157,21 @@ func (app *application) listRatingsHandler(w http.ResponseWriter, req *http.Requ
 func (app *application) getRatingHandler(w http.ResponseWriter, req *http.Request) {
 	user := app.contextGetUser(req)
 
-	mediaID, err := uuid.Parse(req.PathValue("media_id"))
+	tmdbID, err := strconv.ParseInt(req.PathValue("tmdb_id"), 10, 32)
+	if err != nil || tmdbID < 1 {
+		app.badRequestResponse(w, req, fmt.Errorf("invalid tmdb_id"))
+		return
+	}
+
+	mediaType := req.URL.Query().Get("type")
+	if mediaType != "movie" && mediaType != "tv" {
+		app.badRequestResponse(w, req, fmt.Errorf("type parameter must be 'movie' or 'tv'"))
+		return
+	}
+
+	mediaID, err := app.models.Movies.GetOrCreateMediaByTmdbID(req.Context(), int32(tmdbID), mediaType)
 	if err != nil {
-		app.badRequestResponse(w, req, fmt.Errorf("invalid media_id"))
+		app.serverErrorResponse(w, req, err)
 		return
 	}
 
@@ -151,9 +193,21 @@ func (app *application) getRatingHandler(w http.ResponseWriter, req *http.Reques
 }
 
 func (app *application) listRatingsForMedia(w http.ResponseWriter, req *http.Request) {
-	mediaID, err := uuid.Parse(req.PathValue("media_id"))
+	tmdbID, err := strconv.ParseInt(req.PathValue("tmdb_id"), 10, 32)
+	if err != nil || tmdbID < 1 {
+		app.badRequestResponse(w, req, fmt.Errorf("invalid tmdb_id"))
+		return
+	}
+
+	mediaType := req.URL.Query().Get("type")
+	if mediaType != "movie" && mediaType != "tv" {
+		app.badRequestResponse(w, req, fmt.Errorf("type parameter must be 'movie' or 'tv'"))
+		return
+	}
+
+	mediaID, err := app.models.Movies.GetOrCreateMediaByTmdbID(req.Context(), int32(tmdbID), mediaType)
 	if err != nil {
-		app.badRequestResponse(w, req, fmt.Errorf("invalid media_id"))
+		app.serverErrorResponse(w, req, err)
 		return
 	}
 

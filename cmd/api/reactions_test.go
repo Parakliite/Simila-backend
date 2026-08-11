@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"net/http"
@@ -17,12 +18,10 @@ func TestUpsertReaction_ValidInput(t *testing.T) {
 	app := newTestApp("")
 	user := newTestUser("Alice", "alice@example.com", "password123", true)
 	ratingUserID := uuid.New()
-	mediaID := uuid.New()
 
 	body := fmt.Sprintf(
-		`{"rating_user_id":"%s","media_id":"%s","reaction":"great_pick"}`,
+		`{"rating_user_id":"%s","tmdb_id":550,"media_type":"movie","reaction":"great_pick"}`,
 		ratingUserID,
-		mediaID,
 	)
 	req := httptest.NewRequest("PUT", "/api/v1/reactions", strings.NewReader(body))
 	req = withUser(req, user)
@@ -60,8 +59,7 @@ func TestUpsertReaction_InvalidReaction(t *testing.T) {
 	user := newTestUser("Alice", "alice@example.com", "password123", true)
 
 	body := fmt.Sprintf(
-		`{"rating_user_id":"%s","media_id":"%s","reaction":"love_it"}`,
-		uuid.New(),
+		`{"rating_user_id":"%s","tmdb_id":550,"media_type":"movie","reaction":"love_it"}`,
 		uuid.New(),
 	)
 	req := httptest.NewRequest("PUT", "/api/v1/reactions", strings.NewReader(body))
@@ -79,7 +77,11 @@ func TestListUserReactions_ReturnsReactions(t *testing.T) {
 	app := newTestApp("")
 	user := newTestUser("Alice", "alice@example.com", "password123", true)
 	targetUserID := uuid.New()
-	mediaID := uuid.New()
+
+	mediaID, err := app.models.Movies.GetOrCreateMediaByTmdbID(context.Background(), 550, "movie")
+	if err != nil {
+		t.Fatalf("failed to get or create media: %v", err)
+	}
 
 	mock := app.models.Reactions.(*mockReactionModel)
 	for i := 0; i < 2; i++ {

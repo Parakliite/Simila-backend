@@ -54,6 +54,23 @@ func (m *mockMediaModel) InsertMedia(ctx context.Context, media *data.Media) err
 	return nil
 }
 
+func (m *mockMediaModel) GetOrCreateMediaByTmdbID(ctx context.Context, tmdbID int32, mediaType string) (uuid.UUID, error) {
+	if err := ctx.Err(); err != nil {
+		return uuid.UUID{}, err
+	}
+	key := fmt.Sprintf("%d:%s", tmdbID, mediaType)
+	if media, ok := m.media[key]; ok {
+		return media.ID, nil
+	}
+	media := &data.Media{
+		ID:        uuid.New(),
+		TmdbID:    tmdbID,
+		MediaType: mediaType,
+	}
+	m.media[key] = media
+	return media.ID, nil
+}
+
 // --- mock user model ---
 
 type mockUserModel struct {
