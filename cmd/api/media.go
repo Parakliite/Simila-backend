@@ -95,6 +95,24 @@ func (app *application) fetchAndSaveMedia(
 	tmdbID int32,
 	mediaType string,
 ) (*data.Media, error) {
+	newMedia, err := app.fetchTMDBMedia(ctx, tmdbID, mediaType)
+	if err != nil {
+		return nil, err
+	}
+
+	err = app.models.Movies.InsertMedia(ctx, newMedia)
+	if err != nil {
+		return nil, err
+	}
+
+	return newMedia, nil
+}
+
+func (app *application) fetchTMDBMedia(
+	ctx context.Context,
+	tmdbID int32,
+	mediaType string,
+) (*data.Media, error) {
 	tmdbIDPath := strconv.FormatInt(int64(tmdbID), 10)
 	var path []string
 	switch mediaType {
@@ -143,6 +161,9 @@ func (app *application) fetchAndSaveMedia(
 		newMedia.Title = r.Title
 		newMedia.OriginalTitle = r.OriginalTitle
 		newMedia.Runtime = data.Runtime(r.Runtime)
+		if newMedia.Runtime == 0 {
+			newMedia.Runtime = data.Runtime(1)
+		}
 		newMedia.ReleaseDate, _ = time.Parse("2006-01-02", r.ReleaseDate)
 	} else {
 		newMedia.Title = r.Name
@@ -161,11 +182,6 @@ func (app *application) fetchAndSaveMedia(
 
 	for _, g := range r.Genres {
 		newMedia.Genre = append(newMedia.Genre, data.Genre{GenreName: g.Name})
-	}
-
-	err = app.models.Movies.InsertMedia(ctx, newMedia)
-	if err != nil {
-		return nil, err
 	}
 
 	return newMedia, nil

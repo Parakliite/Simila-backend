@@ -9,6 +9,7 @@ SELECT  media.id,
         media.overview,
         media.release_date,
         media.runtime,
+        media.popularity,
         media.media_type,
         COALESCE((
             SELECT json_agg(genres.name)
@@ -34,15 +35,25 @@ INSERT INTO media (
   original_title, 
   poster_path, 
   backdrop_path, 
-  overview, 
-  release_date, 
-  runtime, 
+  overview,
+  release_date,
+  runtime,
+  popularity,
+  popularity_updated_at,
   media_type
 ) 
 VALUES (
-  NOW(), NOW(), $1, $2, $3, $4, $5, $6, $7, $8, $9
+  NOW(), NOW(), $1, $2, $3, $4, $5, $6, $7, $8, $9,
+  CASE WHEN $9 > 0 THEN NOW() ELSE NULL END,
+  $10
 )
 RETURNING *;
+
+-- name: UpdateMediaPopularity :exec
+UPDATE media
+SET popularity = $1,
+    popularity_updated_at = NOW()
+WHERE tmdb_id = $2 AND media_type = $3;
 
 -- name: CreateMediaGenre :exec
 INSERT INTO media_genres (
@@ -56,6 +67,3 @@ INSERT INTO media_genres (
 -- name: GetAllMedia :many
 SELECT id
 FROM media;
-
-
-

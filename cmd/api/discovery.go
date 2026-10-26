@@ -8,13 +8,20 @@ import (
 	"github.com/parakliite/simila/internal/data"
 )
 
+const discoveryLimit int32 = 20
+
 func (app *application) listRandomMediaHandler(w http.ResponseWriter, req *http.Request) {
 	user := app.contextGetUser(req)
 
-	media, err := app.models.Ratings.GetRandomMedia(req.Context(), user.ID, 10)
+	media, err := app.models.Ratings.GetRandomMedia(req.Context(), user.ID, discoveryLimit+1)
 	if err != nil {
 		app.serverErrorResponse(w, req, err)
 		return
+	}
+
+	hasMore := len(media) > int(discoveryLimit)
+	if hasMore {
+		media = media[:discoveryLimit]
 	}
 
 	var parsedMediaList []data.Media
@@ -53,7 +60,7 @@ func (app *application) listRandomMediaHandler(w http.ResponseWriter, req *http.
 		}
 	}
 
-	err = app.writeJSON(w, http.StatusOK, envelope{"media": parsedMediaList}, nil)
+	err = app.writeJSON(w, http.StatusOK, envelope{"media": parsedMediaList, "has_more": hasMore}, nil)
 	if err != nil {
 		app.serverErrorResponse(w, req, err)
 	}

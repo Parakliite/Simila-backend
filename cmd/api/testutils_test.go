@@ -54,6 +54,21 @@ func (m *mockMediaModel) InsertMedia(ctx context.Context, media *data.Media) err
 	return nil
 }
 
+func (m *mockMediaModel) UpdateMediaPopularity(
+	ctx context.Context,
+	tmdbID int32,
+	mediaType string,
+	popularity float64,
+) error {
+	key := fmt.Sprintf("%d:%s", tmdbID, mediaType)
+	media, ok := m.media[key]
+	if !ok {
+		return data.ErrRecordNotFound
+	}
+	media.Popularity = popularity
+	return nil
+}
+
 func (m *mockMediaModel) GetOrCreateMediaByTmdbID(ctx context.Context, tmdbID int32, mediaType string) (uuid.UUID, error) {
 	if err := ctx.Err(); err != nil {
 		return uuid.UUID{}, err
@@ -292,8 +307,9 @@ func tokenKey(scope string, tokenHash []byte) string {
 // --- mock rating model ---
 
 type mockRatingModel struct {
-	ratings     map[string]data.UserRating
-	randomMedia []data.Media
+	ratings         map[string]data.UserRating
+	randomMedia     []data.Media
+	lastRandomLimit int32
 }
 
 func newMockRatingModel() *mockRatingModel {
@@ -409,6 +425,7 @@ func (m *mockRatingModel) GetRandomMedia(
 	userID uuid.UUID,
 	limit int32,
 ) ([]data.Media, error) {
+	m.lastRandomLimit = limit
 	var result []data.Media
 	for _, media := range m.randomMedia {
 		if _, ok := m.ratings[ratingKey(userID, media.ID)]; ok {
@@ -734,12 +751,17 @@ func (m *mockWatchlistModel) GetAllItemsInWatchlist(
 // --- mock discovery model ---
 
 type mockDiscoveryModel struct {
-	history map[string]time.Time
+	history   map[string]time.Time
+	syncState map[string]data.DiscoverySyncState
 }
 
 func newMockDiscoveryModel() *mockDiscoveryModel {
 	return &mockDiscoveryModel{
 		history: make(map[string]time.Time),
+		syncState: map[string]data.DiscoverySyncState{
+			"movie": {MediaType: "movie", NextPage: 1},
+			"tv":    {MediaType: "tv", NextPage: 1},
+		},
 	}
 }
 
@@ -765,6 +787,45 @@ func (m *mockDiscoveryModel) SetDiscoveryHistoryExpiry(
 	eligibleAt time.Time,
 ) error {
 	m.history[discoveryKey(userID, mediaID)] = eligibleAt
+	return nil
+}
+
+func (m *mockDiscoveryModel) GetDiscoverySyncState(
+	ctx context.Context,
+	mediaType string,
+) (data.DiscoverySyncState, error) {
+	state, ok := m.syncState[mediaType]
+	if !ok {
+		return data.DiscoverySyncState{}, data.ErrRecordNotFound
+	}
+	return state, nil
+}
+
+func (m *mockDiscoveryModel) UpdateDiscoverySyncSuccess(
+	ctx context.Context,
+	mediaType string,
+	nextPage int32,
+) error {
+	state := m.syncState[mediaType]
+	state.NextPage = nextPage
+	state.ConsecutiveFailures = 0
+	state.PausedUntil = nil
+	now := time.Now()
+	state.LastSuccessAt = &now
+	m.syncState[mediaType] = state
+	return nil
+}
+
+func (m *mockDiscoveryModel) UpdateDiscoverySyncFailure(
+	ctx context.Context,
+	mediaType string,
+	consecutiveFailures int32,
+	pausedUntil *time.Time,
+) error {
+	state := m.syncState[mediaType]
+	state.ConsecutiveFailures = consecutiveFailures
+	state.PausedUntil = pausedUntil
+	m.syncState[mediaType] = state
 	return nil
 }
 

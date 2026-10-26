@@ -147,6 +147,14 @@ type DiscoveryHistory struct {
 	NextEligibleAt time.Time
 }
 
+type DiscoverySyncState struct {
+	MediaType           string
+	NextPage            int32
+	ConsecutiveFailures int32
+	PausedUntil         sql.NullTime
+	LastSuccessAt       sql.NullTime
+}
+
 type Genre struct {
 	ID   uuid.UUID
 	Name string
@@ -159,18 +167,20 @@ type MediaGenre struct {
 }
 
 type Medium struct {
-	ID            uuid.UUID
-	CreatedAt     time.Time
-	UpdatedAt     time.Time
-	TmdbID        int32
-	Title         string
-	OriginalTitle string
-	PosterPath    string
-	BackdropPath  string
-	Overview      string
-	ReleaseDate   time.Time
-	Runtime       int32
-	MediaType     string
+	ID                  uuid.UUID
+	CreatedAt           time.Time
+	UpdatedAt           time.Time
+	TmdbID              int32
+	Title               string
+	OriginalTitle       string
+	PosterPath          string
+	BackdropPath        string
+	Overview            string
+	ReleaseDate         time.Time
+	Runtime             int32
+	MediaType           string
+	Popularity          float64
+	PopularityUpdatedAt sql.NullTime
 }
 
 type ReactionComment struct {

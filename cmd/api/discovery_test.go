@@ -53,6 +53,17 @@ func getDiscoveryResponse(t *testing.T, app *application, user *data.User) ([]di
 	return resp.Media, rr
 }
 
+func discoveryHasMore(t *testing.T, rr *httptest.ResponseRecorder) bool {
+	t.Helper()
+	var resp struct {
+		HasMore bool `json:"has_more"`
+	}
+	if err := json.Unmarshal(rr.Body.Bytes(), &resp); err != nil {
+		t.Fatalf("failed to decode discovery metadata: %v", err)
+	}
+	return resp.HasMore
+}
+
 func TestDiscoveryRatingCandidates_BasicDiscoveryReturnsMediaAndRecordsHistory(t *testing.T) {
 	app := newTestApp("")
 	user := newTestUser("Jerry", "jerry@example.com", "password123", true)
@@ -61,11 +72,18 @@ func TestDiscoveryRatingCandidates_BasicDiscoveryReturnsMediaAndRecordsHistory(t
 	app.models.Ratings.(*mockRatingModel).randomMedia = []data.Media{media}
 
 	before := time.Now()
-	got, _ := getDiscoveryResponse(t, app, user)
+	got, rr := getDiscoveryResponse(t, app, user)
 	after := time.Now()
+
+	if gotLimit := app.models.Ratings.(*mockRatingModel).lastRandomLimit; gotLimit != discoveryLimit+1 {
+		t.Fatalf("expected discovery query limit %d, got %d", discoveryLimit+1, gotLimit)
+	}
 
 	if len(got) != 1 {
 		t.Fatalf("expected 1 media candidate, got %d", len(got))
+	}
+	if discoveryHasMore(t, rr) {
+		t.Fatal("expected has_more to be false for a single candidate")
 	}
 	if got[0].ID != media.ID {
 		t.Fatalf("expected media ID %s, got %s", media.ID, got[0].ID)
@@ -81,6 +99,21 @@ func TestDiscoveryRatingCandidates_BasicDiscoveryReturnsMediaAndRecordsHistory(t
 	}
 	if expiry.Before(before.Add(7*24*time.Hour)) || expiry.After(after.Add(7*24*time.Hour)) {
 		t.Fatalf("expected expiry about 7 days from now, got %s", expiry)
+	}
+}
+
+func TestDiscoveryRatingCandidates_SignalsMoreCandidates(t *testing.T) {
+	app := newTestApp("")
+	user := newTestUser("Jerry", "jerry@example.com", "password123", true)
+	mockRatings := app.models.Ratings.(*mockRatingModel)
+
+	for i := 0; i < int(discoveryLimit)+1; i++ {
+		mockRatings.randomMedia = append(mockRatings.randomMedia, newDiscoveryMedia(fmt.Sprintf("Candidate %d", i)))
+	}
+
+	_, rr := getDiscoveryResponse(t, app, user)
+	if !discoveryHasMore(t, rr) {
+		t.Fatal("expected has_more to be true when more than 20 candidates exist")
 	}
 }
 

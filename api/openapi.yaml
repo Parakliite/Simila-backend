@@ -1036,12 +1036,15 @@ components:
           $ref: "#/components/schemas/Media"
     MediaListResponse:
       type: object
-      required: [media]
+      required: [media, has_more]
       properties:
         media:
           type: array
           items:
             $ref: "#/components/schemas/Media"
+        has_more:
+          type: boolean
+          description: Whether more eligible discovery candidates are currently available.
 
     TMDBSearchResult:
       type: object
