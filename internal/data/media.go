@@ -26,6 +26,7 @@ type Media struct {
 	Title         string    `json:"title"`
 	ReleaseDate   time.Time `json:"release_date"`
 	Runtime       Runtime   `json:"runtime"`
+	Popularity    float64   `json:"-"`
 	Overview      string    `json:"overview"`
 	OriginalTitle string    `json:"original_title"`
 	PosterPath    string    `json:"poster_path"`
@@ -58,6 +59,7 @@ func (m MediaModel) InsertMedia(ctx context.Context, media *Media) error {
 			Overview:      media.Overview,
 			ReleaseDate:   media.ReleaseDate,
 			Runtime:       int32(media.Runtime),
+			Popularity:    media.Popularity,
 			MediaType:     media.MediaType,
 		},
 	)
@@ -123,6 +125,22 @@ func (m MediaModel) GetOrCreateMediaByTmdbID(ctx context.Context, tmdbID int32, 
 	return row.ID, nil
 }
 
+func (m MediaModel) UpdateMediaPopularity(
+	ctx context.Context,
+	tmdbID int32,
+	mediaType string,
+	popularity float64,
+) error {
+	ctx, cancel := context.WithTimeout(ctx, 3*time.Second)
+	defer cancel()
+
+	return m.q.UpdateMediaPopularity(ctx, database.UpdateMediaPopularityParams{
+		Popularity: popularity,
+		TmdbID:     tmdbID,
+		MediaType:  mediaType,
+	})
+}
+
 func (m MediaModel) GetMedia(ctx context.Context, id int32, mediaType string) (*Media, error) {
 	ctx, cancel := context.WithTimeout(ctx, 3*time.Second)
 	defer cancel()
@@ -164,6 +182,7 @@ func (m MediaModel) GetMedia(ctx context.Context, id int32, mediaType string) (*
 		Overview:      media.Overview,
 		ReleaseDate:   media.ReleaseDate,
 		Runtime:       Runtime(media.Runtime),
+		Popularity:    media.Popularity,
 		MediaType:     media.MediaType,
 	}, nil
 }

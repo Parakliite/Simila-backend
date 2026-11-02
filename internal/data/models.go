@@ -13,6 +13,7 @@ type MediaQuerier interface {
 	GetMedia(ctx context.Context, id int32, mediaType string) (*Media, error)
 	GetOrCreateMediaByTmdbID(ctx context.Context, tmdbID int32, mediaType string) (uuid.UUID, error)
 	InsertMedia(ctx context.Context, media *Media) error
+	UpdateMediaPopularity(ctx context.Context, tmdbID int32, mediaType string, popularity float64) error
 }
 
 type UserQuerier interface {
@@ -113,6 +114,17 @@ type WatchlistQuerier interface {
 type DiscoveryQuerier interface {
 	GetDiscoveryHistoryExpiry(ctx context.Context, userID, mediaID uuid.UUID) (time.Time, error)
 	SetDiscoveryHistoryExpiry(ctx context.Context, userID, mediaID uuid.UUID, eligibleAt time.Time) error
+	GetDiscoverySyncState(ctx context.Context, mediaType string) (DiscoverySyncState, error)
+	UpdateDiscoverySyncSuccess(ctx context.Context, mediaType string, nextPage int32) error
+	UpdateDiscoverySyncFailure(ctx context.Context, mediaType string, consecutiveFailures int32, pausedUntil *time.Time) error
+}
+
+type DiscoverySyncState struct {
+	MediaType           string
+	NextPage            int32
+	ConsecutiveFailures int32
+	PausedUntil         *time.Time
+	LastSuccessAt       *time.Time
 }
 
 type RecommendationsQuerier interface {

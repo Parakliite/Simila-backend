@@ -159,8 +159,12 @@ SELECT
   m.media_type
 FROM media AS m
 LEFT JOIN user_ratings as ur
-ON m.id = ur.media_id AND ur.user_id = $1
+ON m.id = ur.media_id AND ur.user_id = $1 AND ur.deleted_at IS NULL
+LEFT JOIN discovery_history AS dh
+ON m.id = dh.media_id AND dh.user_id = $1
 WHERE ur.media_id IS NULL
+  AND m.popularity > 0
+  AND (dh.media_id IS NULL OR dh.next_eligible_at <= NOW())
 ORDER BY RANDOM()
 LIMIT $2
 `

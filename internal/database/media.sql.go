@@ -21,15 +21,19 @@ INSERT INTO media (
   original_title, 
   poster_path, 
   backdrop_path, 
-  overview, 
-  release_date, 
-  runtime, 
+  overview,
+  release_date,
+  runtime,
+  popularity,
+  popularity_updated_at,
   media_type
 ) 
 VALUES (
-  NOW(), NOW(), $1, $2, $3, $4, $5, $6, $7, $8, $9
+  NOW(), NOW(), $1, $2, $3, $4, $5, $6, $7, $8, $9,
+  CASE WHEN $9 > 0 THEN NOW() ELSE NULL END,
+  $10
 )
-RETURNING id, created_at, updated_at, tmdb_id, title, original_title, poster_path, backdrop_path, overview, release_date, runtime, media_type
+RETURNING id, created_at, updated_at, tmdb_id, title, original_title, poster_path, backdrop_path, overview, release_date, runtime, media_type, popularity, popularity_updated_at
 `
 
 type CreateMediaParams struct {
@@ -41,6 +45,7 @@ type CreateMediaParams struct {
 	Overview      string
 	ReleaseDate   time.Time
 	Runtime       int32
+	Popularity    float64
 	MediaType     string
 }
 
@@ -54,6 +59,7 @@ func (q *Queries) CreateMedia(ctx context.Context, arg CreateMediaParams) (Mediu
 		arg.Overview,
 		arg.ReleaseDate,
 		arg.Runtime,
+		arg.Popularity,
 		arg.MediaType,
 	)
 	var i Medium
@@ -70,6 +76,8 @@ func (q *Queries) CreateMedia(ctx context.Context, arg CreateMediaParams) (Mediu
 		&i.ReleaseDate,
 		&i.Runtime,
 		&i.MediaType,
+		&i.Popularity,
+		&i.PopularityUpdatedAt,
 	)
 	return i, err
 }
@@ -146,6 +154,7 @@ SELECT  media.id,
         media.overview,
         media.release_date,
         media.runtime,
+        media.popularity,
         media.media_type,
         COALESCE((
             SELECT json_agg(genres.name)
@@ -172,6 +181,7 @@ type GetMediaRow struct {
 	Overview      string
 	ReleaseDate   time.Time
 	Runtime       int32
+	Popularity    float64
 	MediaType     string
 	Genres        string
 }
@@ -189,8 +199,27 @@ func (q *Queries) GetMedia(ctx context.Context, arg GetMediaParams) (GetMediaRow
 		&i.Overview,
 		&i.ReleaseDate,
 		&i.Runtime,
+		&i.Popularity,
 		&i.MediaType,
 		&i.Genres,
 	)
 	return i, err
+}
+
+const updateMediaPopularity = `-- name: UpdateMediaPopularity :exec
+UPDATE media
+SET popularity = $1,
+    popularity_updated_at = NOW()
+WHERE tmdb_id = $2 AND media_type = $3
+`
+
+type UpdateMediaPopularityParams struct {
+	Popularity float64
+	TmdbID     int32
+	MediaType  string
+}
+
+func (q *Queries) UpdateMediaPopularity(ctx context.Context, arg UpdateMediaPopularityParams) error {
+	_, err := q.db.ExecContext(ctx, updateMediaPopularity, arg.Popularity, arg.TmdbID, arg.MediaType)
+	return err
 }

@@ -14,6 +14,7 @@ import (
 
 func (app *application) serve() error {
 	matchesCtx, stopMatches := context.WithCancel(context.Background())
+	discoveryCtx, stopDiscovery := context.WithCancel(context.Background())
 
 	server := &http.Server{
 		Addr:         fmt.Sprintf(":%d", port),
@@ -44,6 +45,7 @@ func (app *application) serve() error {
 		}
 
 		stopMatches()
+		stopDiscovery()
 
 		app.logger.PrintInfo("completing background tasks", map[string]string{
 			"addr": server.Addr,
@@ -60,6 +62,10 @@ func (app *application) serve() error {
 
 	app.background(func() {
 		app.recalculateMatchesJob(matchesCtx)
+	})
+
+	app.background(func() {
+		app.discoverySyncJob(discoveryCtx)
 	})
 
 	err := server.ListenAndServe()
