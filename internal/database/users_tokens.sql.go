@@ -21,6 +21,7 @@ SELECT users.id,
       users.email, 
       users.password_hash, 
       users.activated, 
+      users.onboarded,
       users.version, 
       users.about,
       users.profile_picture_url
@@ -45,6 +46,7 @@ type GetUserForTokenRow struct {
 	Email             string
 	PasswordHash      []byte
 	Activated         bool
+	Onboarded         bool
 	Version           int32
 	About             sql.NullString
 	ProfilePictureUrl sql.NullString
@@ -60,6 +62,7 @@ func (q *Queries) GetUserForToken(ctx context.Context, arg GetUserForTokenParams
 		&i.Email,
 		&i.PasswordHash,
 		&i.Activated,
+		&i.Onboarded,
 		&i.Version,
 		&i.About,
 		&i.ProfilePictureUrl,

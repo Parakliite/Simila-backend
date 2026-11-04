@@ -100,7 +100,7 @@ func (app *application) loginHandler(w http.ResponseWriter, req *http.Request) {
 	err = app.writeJSON(
 		w,
 		http.StatusCreated,
-		envelope{"access_token": accessToken, "refresh_token": refreshToken},
+		envelope{"access_token": accessToken, "refresh_token": refreshToken, "user": user},
 		nil,
 	)
 	if err != nil {

@@ -6,6 +6,8 @@ import (
 	"net/http/httptest"
 	"strings"
 	"testing"
+
+	"github.com/parakliite/simila/internal/data"
 )
 
 type authTokenPayload struct {
@@ -16,6 +18,7 @@ type authTokenPayload struct {
 type authResponse struct {
 	AccessToken  authTokenPayload `json:"access_token"`
 	RefreshToken authTokenPayload `json:"refresh_token"`
+	User         data.User        `json:"user"`
 }
 
 func decodeAuthResponse(t *testing.T, rr *httptest.ResponseRecorder) authResponse {
@@ -87,6 +90,12 @@ func TestCreateAuthToken_ValidCredentials(t *testing.T) {
 
 	assertTokenPayload(t, resp.AccessToken, "access", false)
 	assertTokenPayload(t, resp.RefreshToken, "refresh", true)
+	if resp.User.ID != user.ID {
+		t.Fatalf("expected login response user %s, got %s", user.ID, resp.User.ID)
+	}
+	if resp.User.Onboarded {
+		t.Fatal("expected new user to not be onboarded")
+	}
 	if resp.AccessToken.Token == resp.RefreshToken.Token {
 		t.Fatal("expected access and refresh tokens to be different")
 	}

@@ -206,6 +206,52 @@ func (q *Queries) GetMedia(ctx context.Context, arg GetMediaParams) (GetMediaRow
 	return i, err
 }
 
+const getOrCreateMediaID = `-- name: GetOrCreateMediaID :one
+INSERT INTO media (
+  created_at,
+  updated_at,
+  tmdb_id,
+  title,
+  original_title,
+  poster_path,
+  backdrop_path,
+  overview,
+  release_date,
+  runtime,
+  popularity,
+  media_type
+)
+VALUES (
+  NOW(),
+  NOW(),
+  $1,
+  'Unknown',
+  'Unknown',
+  '',
+  '',
+  '',
+  '1970-01-01',
+  1,
+  0,
+  $2
+)
+ON CONFLICT (tmdb_id, media_type)
+DO UPDATE SET tmdb_id = EXCLUDED.tmdb_id
+RETURNING id
+`
+
+type GetOrCreateMediaIDParams struct {
+	TmdbID    int32
+	MediaType string
+}
+
+func (q *Queries) GetOrCreateMediaID(ctx context.Context, arg GetOrCreateMediaIDParams) (uuid.UUID, error) {
+	row := q.db.QueryRowContext(ctx, getOrCreateMediaID, arg.TmdbID, arg.MediaType)
+	var id uuid.UUID
+	err := row.Scan(&id)
+	return id, err
+}
+
 const updateMediaPopularity = `-- name: UpdateMediaPopularity :exec
 UPDATE media
 SET popularity = $1,

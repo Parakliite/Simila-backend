@@ -12,8 +12,6 @@ import (
 	"github.com/parakliite/simila/internal/validator"
 )
 
-var placeholderDate = time.Date(1970, 1, 1, 0, 0, 0, 0, time.UTC)
-
 type Genre struct {
 	GenreName string `json:"name"`
 }
@@ -96,33 +94,15 @@ func (m MediaModel) GetOrCreateMediaByTmdbID(ctx context.Context, tmdbID int32, 
 	ctx, cancel := context.WithTimeout(ctx, 3*time.Second)
 	defer cancel()
 
-	existing, err := m.q.GetMedia(ctx, database.GetMediaParams{
+	row, err := m.q.GetOrCreateMediaID(ctx, database.GetOrCreateMediaIDParams{
 		TmdbID:    tmdbID,
 		MediaType: mediaType,
-	})
-	if err == nil {
-		return existing.ID, nil
-	}
-	if !errors.Is(err, sql.ErrNoRows) {
-		return uuid.UUID{}, err
-	}
-
-	row, err := m.q.CreateMedia(ctx, database.CreateMediaParams{
-		TmdbID:        tmdbID,
-		Title:         "",
-		OriginalTitle: "",
-		PosterPath:    "",
-		BackdropPath:  "",
-		Overview:      "",
-		ReleaseDate:   placeholderDate,
-		Runtime:       1,
-		MediaType:     mediaType,
 	})
 	if err != nil {
 		return uuid.UUID{}, err
 	}
 
-	return row.ID, nil
+	return row, nil
 }
 
 func (m MediaModel) UpdateMediaPopularity(

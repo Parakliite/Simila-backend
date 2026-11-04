@@ -23,7 +23,7 @@ INSERT INTO users (
 ) VALUES (
     $1, $2, $3, $4, $5
 )
-RETURNING id, name, email, created_at, updated_at, profile_picture_url, about, activated, version
+RETURNING id, name, email, created_at, updated_at, profile_picture_url, about, activated, onboarded, version
 `
 
 type CreateUserParams struct {
@@ -43,6 +43,7 @@ type CreateUserRow struct {
 	ProfilePictureUrl sql.NullString
 	About             sql.NullString
 	Activated         bool
+	Onboarded         bool
 	Version           int32
 }
 
@@ -64,6 +65,7 @@ func (q *Queries) CreateUser(ctx context.Context, arg CreateUserParams) (CreateU
 		&i.ProfilePictureUrl,
 		&i.About,
 		&i.Activated,
+		&i.Onboarded,
 		&i.Version,
 	)
 	return i, err
@@ -97,7 +99,7 @@ func (q *Queries) GetAllUsers(ctx context.Context) ([]uuid.UUID, error) {
 }
 
 const getUserByEmail = `-- name: GetUserByEmail :one
-SELECT id, name, email, password_hash, created_at, updated_at, profile_picture_url, about, activated, version
+SELECT id, name, email, password_hash, created_at, updated_at, profile_picture_url, about, activated, onboarded, version
 FROM users
 WHERE email = $1
 `
@@ -112,6 +114,7 @@ type GetUserByEmailRow struct {
 	ProfilePictureUrl sql.NullString
 	About             sql.NullString
 	Activated         bool
+	Onboarded         bool
 	Version           int32
 }
 
@@ -128,13 +131,14 @@ func (q *Queries) GetUserByEmail(ctx context.Context, email string) (GetUserByEm
 		&i.ProfilePictureUrl,
 		&i.About,
 		&i.Activated,
+		&i.Onboarded,
 		&i.Version,
 	)
 	return i, err
 }
 
 const getUserByID = `-- name: GetUserByID :one
-SELECT id, name, email, password_hash, created_at, updated_at, profile_picture_url, about, activated, version
+SELECT id, name, email, password_hash, created_at, updated_at, profile_picture_url, about, activated, onboarded, version
 FROM users
 WHERE id = $1
 `
@@ -149,6 +153,7 @@ type GetUserByIDRow struct {
 	ProfilePictureUrl sql.NullString
 	About             sql.NullString
 	Activated         bool
+	Onboarded         bool
 	Version           int32
 }
 
@@ -165,6 +170,7 @@ func (q *Queries) GetUserByID(ctx context.Context, id uuid.UUID) (GetUserByIDRow
 		&i.ProfilePictureUrl,
 		&i.About,
 		&i.Activated,
+		&i.Onboarded,
 		&i.Version,
 	)
 	return i, err
