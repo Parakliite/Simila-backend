@@ -113,8 +113,8 @@ func (app *application) enableCORS(next http.Handler) http.Handler {
 
 					// if pre-flight request
 					if req.Method == http.MethodOptions && req.Header.Get("Access-Control-Request-Method") != "" {
-						w.Header().Set("Access-Control-Allow-Method", "OPTIONS, PUT, PATCH, DELETE")
-						w.Header().Set("", "Authorization, Content-Type")
+						w.Header().Set("Access-Control-Allow-Methods", "GET, POST, PUT, PATCH, DELETE, OPTIONS")
+						w.Header().Set("Access-Control-Allow-Headers", "Authorization, Content-Type")
 
 						w.WriteHeader(http.StatusOK)
 						return
