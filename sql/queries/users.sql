@@ -8,15 +8,15 @@ INSERT INTO users (
 ) VALUES (
     $1, $2, $3, $4, $5
 )
-RETURNING id, name, email, created_at, updated_at, profile_picture_url, about, activated, version;
+RETURNING id, name, email, created_at, updated_at, profile_picture_url, about, activated, onboarded, version;
 
 -- name: GetUserByEmail :one
-SELECT id, name, email, password_hash, created_at, updated_at, profile_picture_url, about, activated, version
+SELECT id, name, email, password_hash, created_at, updated_at, profile_picture_url, about, activated, onboarded, version
 FROM users
 WHERE email = $1;
 
 -- name: GetUserByID :one
-SELECT id, name, email, password_hash, created_at, updated_at, profile_picture_url, about, activated, version
+SELECT id, name, email, password_hash, created_at, updated_at, profile_picture_url, about, activated, onboarded, version
 FROM users
 WHERE id = $1;
 

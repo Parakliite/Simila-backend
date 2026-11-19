@@ -30,6 +30,7 @@ type User struct {
 	Email             string    `json:"email"`
 	Password          password  `json:"-"`
 	Activated         bool      `json:"activated"`
+	Onboarded         bool      `json:"onboarded"`
 	Version           int32     `json:"-"`
 }
 
@@ -91,6 +92,7 @@ func (m UserModel) Insert(ctx context.Context, user *User) error {
 	user.CreatedAt = row.CreatedAt
 	user.UpdatedAt = row.UpdatedAt
 	user.Activated = row.Activated
+	user.Onboarded = row.Onboarded
 	user.Version = row.Version
 
 	return nil
@@ -121,6 +123,7 @@ func (m UserModel) GetByEmail(ctx context.Context, email string) (*User, error) 
 		ProfilePictureURL: row.ProfilePictureUrl.String,
 		About:             row.About.String,
 		Activated:         row.Activated,
+		Onboarded:         row.Onboarded,
 		Version:           row.Version,
 	}
 
@@ -151,6 +154,7 @@ func (m UserModel) GetByID(ctx context.Context, id uuid.UUID) (*User, error) {
 		ProfilePictureURL: row.ProfilePictureUrl.String,
 		About:             row.About.String,
 		Activated:         row.Activated,
+		Onboarded:         row.Onboarded,
 		Version:           row.Version,
 	}
 
@@ -219,6 +223,7 @@ func (m UserModel) GetUserForToken(ctx context.Context, tokenScope, tokenPlainte
 		ProfilePictureURL: row.ProfilePictureUrl.String,
 		About:             row.About.String,
 		Activated:         row.Activated,
+		Onboarded:         row.Onboarded,
 		Version:           row.Version,
 	}
 

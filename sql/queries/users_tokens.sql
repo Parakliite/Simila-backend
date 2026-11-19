@@ -6,6 +6,7 @@ SELECT users.id,
       users.email, 
       users.password_hash, 
       users.activated, 
+      users.onboarded,
       users.version, 
       users.about,
       users.profile_picture_url

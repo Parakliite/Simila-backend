@@ -213,6 +213,7 @@ type User struct {
 	PasswordHash      []byte
 	Activated         bool
 	Version           int32
+	Onboarded         bool
 }
 
 type UserMatch struct {

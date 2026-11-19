@@ -20,7 +20,7 @@ Create a `.env` file with the required environment variables:
 ```sh
 DB_URL=postgres://user:password@localhost:5432/simila?sslmode=disable
 TMDB_TOKEN=your_tmdb_token
-CORS_ALLOWED_ORIGINS=http://localhost:3000
+CORS_ALLOWED_ORIGINS=http://localhost:3000 http://localhost:8081 http://127.0.0.1:8081
 ```
 
 Apply migrations:

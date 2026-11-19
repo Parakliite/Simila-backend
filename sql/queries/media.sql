@@ -20,6 +20,39 @@ SELECT  media.id,
 FROM media
 WHERE media.tmdb_id = $1 AND media.media_type = $2;
 
+-- name: GetOrCreateMediaID :one
+INSERT INTO media (
+  created_at,
+  updated_at,
+  tmdb_id,
+  title,
+  original_title,
+  poster_path,
+  backdrop_path,
+  overview,
+  release_date,
+  runtime,
+  popularity,
+  media_type
+)
+VALUES (
+  NOW(),
+  NOW(),
+  $1,
+  'Unknown',
+  'Unknown',
+  '',
+  '',
+  '',
+  '1970-01-01',
+  1,
+  0,
+  $2
+)
+ON CONFLICT (tmdb_id, media_type)
+DO UPDATE SET tmdb_id = EXCLUDED.tmdb_id
+RETURNING id;
+
 
 -- name: GetGenre :one
 SELECT id

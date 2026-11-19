@@ -127,6 +127,18 @@ type DiscoverySyncState struct {
 	LastSuccessAt       *time.Time
 }
 
+type OnboardingRating struct {
+	TmdbID      int32
+	MediaType   string
+	RatingValue float64
+	WatchedDate *time.Time
+}
+
+type OnboardingQuerier interface {
+	GetMedia(ctx context.Context, userID uuid.UUID, popularityThreshold float64, limit int32) ([]Media, error)
+	Complete(ctx context.Context, userID uuid.UUID, ratings []OnboardingRating) (*User, []Rating, error)
+}
+
 type RecommendationsQuerier interface {
 	GetUserRecommendations(
 		ctx context.Context,
@@ -150,6 +162,7 @@ type Models struct {
 	Discovery       DiscoveryQuerier
 	Recommendations RecommendationsQuerier
 	Home            HomeQuerier
+	Onboarding      OnboardingQuerier
 }
 
 func NewModels(db *sql.DB) Models {
@@ -193,6 +206,10 @@ func NewModels(db *sql.DB) Models {
 			q:  dbQueries,
 		},
 		Home: HomeModel{
+			DB: db,
+			q:  dbQueries,
+		},
+		Onboarding: OnboardingModel{
 			DB: db,
 			q:  dbQueries,
 		},

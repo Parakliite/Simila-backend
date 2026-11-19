@@ -68,6 +68,9 @@ func TestRegisterUser_ValidInputReturnsUserContract(t *testing.T) {
 	if user["activated"] != false {
 		t.Errorf("expected activated false, got %v", user["activated"])
 	}
+	if user["onboarded"] != false {
+		t.Errorf("expected onboarded false, got %v", user["onboarded"])
+	}
 }
 
 func TestRegisterUser_EmptyBody(t *testing.T) {

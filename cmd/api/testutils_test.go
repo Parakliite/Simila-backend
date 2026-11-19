@@ -829,6 +829,50 @@ func (m *mockDiscoveryModel) UpdateDiscoverySyncFailure(
 	return nil
 }
 
+// --- mock onboarding model ---
+
+type mockOnboardingModel struct {
+	media            []data.Media
+	completeUser     *data.User
+	completeRatings  []data.Rating
+	lastUserID       uuid.UUID
+	lastThreshold    float64
+	lastLimit        int32
+	lastInputRatings []data.OnboardingRating
+	completeCalls    int
+	getMediaErr      error
+	completeErr      error
+}
+
+func (m *mockOnboardingModel) GetMedia(
+	ctx context.Context,
+	userID uuid.UUID,
+	popularityThreshold float64,
+	limit int32,
+) ([]data.Media, error) {
+	m.lastUserID = userID
+	m.lastThreshold = popularityThreshold
+	m.lastLimit = limit
+	if m.getMediaErr != nil {
+		return nil, m.getMediaErr
+	}
+	return m.media, nil
+}
+
+func (m *mockOnboardingModel) Complete(
+	ctx context.Context,
+	userID uuid.UUID,
+	ratings []data.OnboardingRating,
+) (*data.User, []data.Rating, error) {
+	m.lastUserID = userID
+	m.lastInputRatings = ratings
+	m.completeCalls++
+	if m.completeErr != nil {
+		return nil, nil, m.completeErr
+	}
+	return m.completeUser, m.completeRatings, nil
+}
+
 // --- helpers ---
 
 func newTestApp(tmdbURL string) *application {
@@ -848,6 +892,7 @@ func newTestApp(tmdbURL string) *application {
 			Watchlist:       newMockWatchlistModel(),
 			Discovery:       newMockDiscoveryModel(),
 			Recommendations: &mockRecommendationModel{},
+			Onboarding:      &mockOnboardingModel{},
 		},
 	}
 }

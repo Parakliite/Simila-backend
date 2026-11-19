@@ -29,6 +29,10 @@ func (app *application) routes() http.Handler {
 		app.authenticate(http.HandlerFunc(app.requireActivatedUser(app.searchHandler))))
 	mux.Handle("GET /api/v1/discovery/rating-candidates",
 		app.authenticate(http.HandlerFunc(app.requireActivatedUser(app.listRandomMediaHandler))))
+	mux.Handle("GET /api/v1/onboarding/media",
+		app.authenticate(http.HandlerFunc(app.requireActivatedUser(app.listOnboardingMediaHandler))))
+	mux.Handle("POST /api/v1/onboarding/ratings",
+		app.authenticate(http.HandlerFunc(app.requireActivatedUser(app.submitOnboardingRatingsHandler))))
 
 	mux.Handle("PUT /api/v1/ratings",
 		app.authenticate(http.HandlerFunc(app.requireActivatedUser(app.upsertRatingHandler))))

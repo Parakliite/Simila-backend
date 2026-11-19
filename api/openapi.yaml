@@ -15,6 +15,7 @@ tags:
   - name: Media
   - name: Search
   - name: Discovery
+  - name: Onboarding
   - name: Ratings
   - name: Matches
   - name: Recommendations
@@ -79,7 +80,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/AuthResponse"
+                $ref: "#/components/schemas/LoginResponse"
         "400":
           $ref: "#/components/responses/BadRequest"
         "401":
@@ -253,6 +254,56 @@ paths:
           $ref: "#/components/responses/Unauthorized"
         "403":
           $ref: "#/components/responses/Forbidden"
+        "500":
+          $ref: "#/components/responses/ServerError"
+
+  /api/v1/onboarding/media:
+    get:
+      tags: [Onboarding]
+      summary: List randomized popular media for onboarding
+      description: Returns 25 popular movie and TV titles that the authenticated user has not actively rated.
+      responses:
+        "200":
+          description: Onboarding media
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/OnboardingMediaListResponse"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "503":
+          $ref: "#/components/responses/ServiceUnavailable"
+        "500":
+          $ref: "#/components/responses/ServerError"
+
+  /api/v1/onboarding/ratings:
+    post:
+      tags: [Onboarding]
+      summary: Save onboarding ratings and complete onboarding
+      description: Requires between 10 and 50 unique media ratings. The operation is atomic.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/OnboardingRatingsRequest"
+      responses:
+        "200":
+          description: Onboarding completed
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/OnboardingRatingsResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "422":
+          $ref: "#/components/responses/ValidationError"
         "500":
           $ref: "#/components/responses/ServerError"
 
@@ -835,6 +886,12 @@ components:
         application/json:
           schema:
             $ref: "#/components/schemas/ErrorResponse"
+    ServiceUnavailable:
+      description: Required onboarding media is temporarily unavailable
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorResponse"
 
   schemas:
     UUID:
@@ -926,7 +983,7 @@ components:
 
     User:
       type: object
-      required: [id, created_at, updated_at, name, email, activated]
+      required: [id, created_at, updated_at, name, email, activated, onboarded]
       properties:
         id:
           $ref: "#/components/schemas/UUID"
@@ -944,6 +1001,8 @@ components:
           type: string
           format: email
         activated:
+          type: boolean
+        onboarded:
           type: boolean
     UserResponse:
       type: object
@@ -971,6 +1030,16 @@ components:
           $ref: "#/components/schemas/Token"
         refresh_token:
           $ref: "#/components/schemas/Token"
+    LoginResponse:
+      type: object
+      required: [access_token, refresh_token, user]
+      properties:
+        access_token:
+          $ref: "#/components/schemas/Token"
+        refresh_token:
+          $ref: "#/components/schemas/Token"
+        user:
+          $ref: "#/components/schemas/User"
 
     MediaType:
       type: string
@@ -1045,6 +1114,15 @@ components:
         has_more:
           type: boolean
           description: Whether more eligible discovery candidates are currently available.
+    OnboardingMediaListResponse:
+      type: object
+      required: [media]
+      properties:
+        media:
+          type: array
+          minItems: 25
+          items:
+            $ref: "#/components/schemas/Media"
 
     TMDBSearchResult:
       type: object
@@ -1103,6 +1181,16 @@ components:
             - string
             - "null"
           format: date-time
+    OnboardingRatingsRequest:
+      type: object
+      required: [ratings]
+      properties:
+        ratings:
+          type: array
+          minItems: 10
+          maxItems: 50
+          items:
+            $ref: "#/components/schemas/UpsertRatingRequest"
     Rating:
       type: object
       required: [media_id, user_id, rating_value, watched_date, created_at, updated_at]
@@ -1129,6 +1217,16 @@ components:
       properties:
         rating:
           $ref: "#/components/schemas/Rating"
+    OnboardingRatingsResponse:
+      type: object
+      required: [user, ratings]
+      properties:
+        user:
+          $ref: "#/components/schemas/User"
+        ratings:
+          type: array
+          items:
+            $ref: "#/components/schemas/Rating"
     UserRating:
       type: object
       required: [media, rating]
