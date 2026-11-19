@@ -221,6 +221,80 @@ func (q *Queries) GetRandomMedia(ctx context.Context, arg GetRandomMediaParams) 
 	return items, nil
 }
 
+const getSimilarMediaRatings = `-- name: GetSimilarMediaRatings :many
+SELECT
+  m.id,
+  m.title,
+  m.original_title,
+  m.poster_path,
+  m.tmdb_id,
+  m.backdrop_path,
+  m.overview,
+  m.release_date,
+  m.runtime,
+  m.media_type
+FROM media AS m
+INNER JOIN user_ratings AS ur
+ON m.id = ur.media_id AND ur.deleted_at IS NULL
+WHERE ur.rating_value >= 7
+  AND ur.user_id IN ($1, $2)
+GROUP BY m.id
+HAVING COUNT(DISTINCT ur.user_id) = 2
+LIMIT 10
+`
+
+type GetSimilarMediaRatingsParams struct {
+	UserID   uuid.UUID
+	UserID_2 uuid.UUID
+}
+
+type GetSimilarMediaRatingsRow struct {
+	ID            uuid.UUID
+	Title         string
+	OriginalTitle string
+	PosterPath    string
+	TmdbID        int32
+	BackdropPath  string
+	Overview      string
+	ReleaseDate   time.Time
+	Runtime       int32
+	MediaType     string
+}
+
+func (q *Queries) GetSimilarMediaRatings(ctx context.Context, arg GetSimilarMediaRatingsParams) ([]GetSimilarMediaRatingsRow, error) {
+	rows, err := q.db.QueryContext(ctx, getSimilarMediaRatings, arg.UserID, arg.UserID_2)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []GetSimilarMediaRatingsRow
+	for rows.Next() {
+		var i GetSimilarMediaRatingsRow
+		if err := rows.Scan(
+			&i.ID,
+			&i.Title,
+			&i.OriginalTitle,
+			&i.PosterPath,
+			&i.TmdbID,
+			&i.BackdropPath,
+			&i.Overview,
+			&i.ReleaseDate,
+			&i.Runtime,
+			&i.MediaType,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const getSingleUserRating = `-- name: GetSingleUserRating :one
 SELECT 
   u.user_id, 
@@ -278,9 +352,190 @@ func (q *Queries) GetSingleUserRating(ctx context.Context, arg GetSingleUserRati
 	return i, err
 }
 
+const getUserHighestRatedMedia = `-- name: GetUserHighestRatedMedia :many
+SELECT
+  m.id,
+  m.title,
+  m.original_title,
+  m.poster_path,
+  m.tmdb_id,
+  m.backdrop_path,
+  m.overview,
+  m.release_date,
+  m.runtime,
+  m.media_type,
+  ur.rating_value,
+  ur.updated_at AS rating_updated_at
+FROM media AS m
+INNER JOIN user_ratings AS ur
+ON m.id = ur.media_id AND ur.deleted_at IS NULL
+WHERE ur.user_id = $1
+  AND (ur.rating_value, ur.updated_at, ur.media_id) < (
+    $2::integer,
+    $3::timestamptz,
+    $4::UUID
+  )
+ORDER BY ur.rating_value DESC, ur.updated_at DESC, ur.media_id DESC
+LIMIT $5
+`
+
+type GetUserHighestRatedMediaParams struct {
+	UserID            uuid.UUID
+	CursorRatingValue int32
+	CursorUpdatedAt   time.Time
+	CursorMediaID     uuid.UUID
+	Limit             int32
+}
+
+type GetUserHighestRatedMediaRow struct {
+	ID              uuid.UUID
+	Title           string
+	OriginalTitle   string
+	PosterPath      string
+	TmdbID          int32
+	BackdropPath    string
+	Overview        string
+	ReleaseDate     time.Time
+	Runtime         int32
+	MediaType       string
+	RatingValue     int32
+	RatingUpdatedAt time.Time
+}
+
+func (q *Queries) GetUserHighestRatedMedia(ctx context.Context, arg GetUserHighestRatedMediaParams) ([]GetUserHighestRatedMediaRow, error) {
+	rows, err := q.db.QueryContext(ctx, getUserHighestRatedMedia,
+		arg.UserID,
+		arg.CursorRatingValue,
+		arg.CursorUpdatedAt,
+		arg.CursorMediaID,
+		arg.Limit,
+	)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []GetUserHighestRatedMediaRow
+	for rows.Next() {
+		var i GetUserHighestRatedMediaRow
+		if err := rows.Scan(
+			&i.ID,
+			&i.Title,
+			&i.OriginalTitle,
+			&i.PosterPath,
+			&i.TmdbID,
+			&i.BackdropPath,
+			&i.Overview,
+			&i.ReleaseDate,
+			&i.Runtime,
+			&i.MediaType,
+			&i.RatingValue,
+			&i.RatingUpdatedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const getUserRecentlyRatedMedia = `-- name: GetUserRecentlyRatedMedia :many
+SELECT
+  m.id,
+  m.title,
+  m.original_title,
+  m.poster_path,
+  m.tmdb_id,
+  m.backdrop_path,
+  m.overview,
+  m.release_date,
+  m.runtime,
+  m.media_type,
+  ur.rating_value,
+  ur.updated_at AS rating_updated_at
+FROM media AS m
+INNER JOIN user_ratings AS ur
+ON m.id = ur.media_id AND ur.deleted_at IS NULL
+WHERE ur.user_id = $1
+  AND (ur.updated_at, ur.media_id) < (
+    $2,
+    $3::UUID
+  )
+ORDER BY ur.updated_at DESC, ur.media_id DESC
+LIMIT $4
+`
+
+type GetUserRecentlyRatedMediaParams struct {
+	UserID          uuid.UUID
+	CursorUpdatedAt time.Time
+	CursorMediaID   uuid.UUID
+	Limit           int32
+}
+
+type GetUserRecentlyRatedMediaRow struct {
+	ID              uuid.UUID
+	Title           string
+	OriginalTitle   string
+	PosterPath      string
+	TmdbID          int32
+	BackdropPath    string
+	Overview        string
+	ReleaseDate     time.Time
+	Runtime         int32
+	MediaType       string
+	RatingValue     int32
+	RatingUpdatedAt time.Time
+}
+
+func (q *Queries) GetUserRecentlyRatedMedia(ctx context.Context, arg GetUserRecentlyRatedMediaParams) ([]GetUserRecentlyRatedMediaRow, error) {
+	rows, err := q.db.QueryContext(ctx, getUserRecentlyRatedMedia,
+		arg.UserID,
+		arg.CursorUpdatedAt,
+		arg.CursorMediaID,
+		arg.Limit,
+	)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []GetUserRecentlyRatedMediaRow
+	for rows.Next() {
+		var i GetUserRecentlyRatedMediaRow
+		if err := rows.Scan(
+			&i.ID,
+			&i.Title,
+			&i.OriginalTitle,
+			&i.PosterPath,
+			&i.TmdbID,
+			&i.BackdropPath,
+			&i.Overview,
+			&i.ReleaseDate,
+			&i.Runtime,
+			&i.MediaType,
+			&i.RatingValue,
+			&i.RatingUpdatedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const getUsersRatings = `-- name: GetUsersRatings :many
 
-SELECT 
+SELECT
   u.user_id, 
   u.media_id, 
   u.rating_value, 

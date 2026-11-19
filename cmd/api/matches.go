@@ -123,7 +123,7 @@ func (app *application) listMatchesHandler(w http.ResponseWriter, req *http.Requ
 		last := matches[len(matches)-1]
 		c := app.encodeCursorMatches(
 			last.Score,
-			last.SharedMedia,
+			last.SharedMediaCount,
 			last.LastRecalculatedAt,
 			last.User.ID,
 		)

@@ -19,7 +19,8 @@ type MatchModel struct {
 type Match struct {
 	User               User      `json:"user"`
 	Score              float64   `json:"score"`
-	SharedMedia        int32     `json:"shared_media_count"`
+	SharedMedia        []Media   `json:"shared_media"`
+	SharedMediaCount   int32     `json:"shared_media_count"`
 	LastRecalculatedAt time.Time `json:"-"`
 }
 
@@ -171,6 +172,31 @@ func (m MatchModel) GetUserMatches(
 	var matches []Match
 
 	for _, row := range rows {
+		mediaRows, err := m.q.GetSimilarMediaRatings(ctx, database.GetSimilarMediaRatingsParams{
+			UserID:   row.TargetUserID,
+			UserID_2: row.OtherUserID,
+		})
+		if err != nil {
+			return nil, err
+		}
+
+		var mediaList []Media
+
+		for _, m := range mediaRows {
+			mediaList = append(mediaList, Media{
+				ID:            m.ID,
+				TmdbID:        m.TmdbID,
+				Title:         m.Title,
+				OriginalTitle: m.OriginalTitle,
+				BackdropPath:  m.BackdropPath,
+				PosterPath:    m.PosterPath,
+				Overview:      m.Overview,
+				ReleaseDate:   m.ReleaseDate,
+				Runtime:       Runtime(m.Runtime),
+				MediaType:     m.MediaType,
+			})
+		}
+
 		matches = append(matches, Match{
 			User: User{
 				Name:              row.UserName,
@@ -180,7 +206,8 @@ func (m MatchModel) GetUserMatches(
 				CreatedAt:         row.UserCreatedAt,
 			},
 			Score:              row.Score,
-			SharedMedia:        row.SharedMediaCount,
+			SharedMedia:        mediaList,
+			SharedMediaCount:   row.SharedMediaCount,
 			LastRecalculatedAt: row.LastRecalculatedAt,
 		})
 	}

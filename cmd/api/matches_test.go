@@ -25,7 +25,7 @@ func TestListMatches_ReturnsMatchesAndNextCursor(t *testing.T) {
 				Name: "Bob",
 			},
 			Score:              0.91,
-			SharedMedia:        7,
+			SharedMediaCount:        7,
 			LastRecalculatedAt: now,
 		},
 		{
@@ -34,7 +34,7 @@ func TestListMatches_ReturnsMatchesAndNextCursor(t *testing.T) {
 				Name: "Cara",
 			},
 			Score:              0.82,
-			SharedMedia:        6,
+			SharedMediaCount:        6,
 			LastRecalculatedAt: now.Add(-time.Minute),
 		},
 	}

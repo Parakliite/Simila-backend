@@ -55,6 +55,21 @@ type RatingQuerier interface {
 	GetAllRatingsForSingleMedia(ctx context.Context, createdAt time.Time, mediaID, userID uuid.UUID, limit int32,
 	) ([]UserRating, error)
 	GetRandomMedia(ctx context.Context, userID uuid.UUID, limit int32) ([]Media, error)
+	GetUserHighestRatedMedia(
+		ctx context.Context,
+		userID uuid.UUID,
+		cursorRatingValue int32,
+		cursorUpdatedAt time.Time,
+		cursorMediaID uuid.UUID,
+		limit int32,
+	) ([]RatedMedia, error)
+	GetUserRecentRatedMedia(
+		ctx context.Context,
+		userID uuid.UUID,
+		cursorUpdatedAt time.Time,
+		cursorMediaID uuid.UUID,
+		limit int32,
+	) ([]RatedMedia, error)
 	DeleteUserRating(ctx context.Context, userID, mediaID uuid.UUID) error
 }
 

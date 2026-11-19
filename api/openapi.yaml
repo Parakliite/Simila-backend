@@ -154,6 +154,7 @@ paths:
           $ref: "#/components/responses/NotFound"
         "500":
           $ref: "#/components/responses/ServerError"
+
     patch:
       tags: [Users]
       summary: Update the authenticated user's profile
@@ -183,6 +184,65 @@ paths:
         "500":
           $ref: "#/components/responses/ServerError"
 
+  /api/v1/users/{user_id}/ratings/highest-rated:
+    get:
+      tags: [Ratings]
+      summary: List a user's highest-rated media
+      parameters:
+        - $ref: "#/components/parameters/UserID"
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            default: 5
+            minimum: 1
+            maximum: 20
+        - $ref: "#/components/parameters/Cursor"
+      responses:
+        "200":
+          description: Highest-rated media
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/UserMediaListResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "500":
+          $ref: "#/components/responses/ServerError"
+
+  /api/v1/users/{user_id}/ratings/recent:
+    get:
+      tags: [Ratings]
+      summary: List a user's recently rated media
+      parameters:
+        - $ref: "#/components/parameters/UserID"
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            default: 5
+            minimum: 1
+            maximum: 20
+        - $ref: "#/components/parameters/Cursor"
+      responses:
+        "200":
+          description: Recently rated media
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/UserMediaListResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "500":
+          $ref: "#/components/responses/ServerError"
   /api/v1/media/{id}:
     get:
       tags: [Media]
@@ -1123,6 +1183,16 @@ components:
           minItems: 25
           items:
             $ref: "#/components/schemas/Media"
+    UserMediaListResponse:
+      type: object
+      required: [media, next_cursor]
+      properties:
+        media:
+          type: array
+          items:
+            $ref: "#/components/schemas/Media"
+        next_cursor:
+          $ref: "#/components/schemas/CursorValue"
 
     TMDBSearchResult:
       type: object

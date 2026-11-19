@@ -31,6 +31,12 @@ type UserRating struct {
 	Rating Rating `json:"rating"`
 }
 
+type RatedMedia struct {
+	Media       Media
+	RatingValue int32
+	RatedAt     time.Time
+}
+
 func translateRatingValueOutbound(value int32) float64 {
 	return float64(value) / 2.0
 }
@@ -224,6 +230,96 @@ func (r RatingModel) GetRandomMedia(
 			Runtime:       Runtime(m.Runtime),
 			MediaType:     m.MediaType,
 			Genre:         []Genre{},
+		})
+	}
+
+	return mediaList, nil
+}
+
+func (r RatingModel) GetUserHighestRatedMedia(
+	ctx context.Context,
+	userID uuid.UUID,
+	cursorRatingValue int32,
+	cursorUpdatedAt time.Time,
+	cursorMediaID uuid.UUID,
+	limit int32,
+) ([]RatedMedia, error) {
+	ctx, cancel := context.WithTimeout(ctx, 3*time.Second)
+	defer cancel()
+
+	rows, err := r.q.GetUserHighestRatedMedia(ctx, database.GetUserHighestRatedMediaParams{
+		UserID:            userID,
+		CursorRatingValue: cursorRatingValue,
+		CursorUpdatedAt:   cursorUpdatedAt,
+		CursorMediaID:     cursorMediaID,
+		Limit:             limit,
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	var mediaList []RatedMedia
+
+	for _, m := range rows {
+		mediaList = append(mediaList, RatedMedia{
+			Media: Media{
+				ID:            m.ID,
+				TmdbID:        m.TmdbID,
+				Title:         m.Title,
+				OriginalTitle: m.OriginalTitle,
+				BackdropPath:  m.BackdropPath,
+				PosterPath:    m.PosterPath,
+				Overview:      m.Overview,
+				ReleaseDate:   m.ReleaseDate,
+				Runtime:       Runtime(m.Runtime),
+				MediaType:     m.MediaType,
+			},
+			RatingValue: m.RatingValue,
+			RatedAt:     m.RatingUpdatedAt,
+		})
+	}
+
+	return mediaList, nil
+}
+
+func (r RatingModel) GetUserRecentRatedMedia(
+	ctx context.Context,
+	userID uuid.UUID,
+	cursorUpdatedAt time.Time,
+	cursorMediaID uuid.UUID,
+	limit int32,
+) ([]RatedMedia, error) {
+	ctx, cancel := context.WithTimeout(ctx, 3*time.Second)
+	defer cancel()
+
+	rows, err := r.q.GetUserRecentlyRatedMedia(ctx, database.GetUserRecentlyRatedMediaParams{
+		UserID:          userID,
+		CursorUpdatedAt: cursorUpdatedAt,
+		CursorMediaID:   cursorMediaID,
+		Limit:           limit,
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	var mediaList []RatedMedia
+
+	for _, m := range rows {
+		mediaList = append(mediaList, RatedMedia{
+			Media: Media{
+				ID:            m.ID,
+				TmdbID:        m.TmdbID,
+				Title:         m.Title,
+				OriginalTitle: m.OriginalTitle,
+				BackdropPath:  m.BackdropPath,
+				PosterPath:    m.PosterPath,
+				Overview:      m.Overview,
+				ReleaseDate:   m.ReleaseDate,
+				Runtime:       Runtime(m.Runtime),
+				MediaType:     m.MediaType,
+			},
+			RatingValue: m.RatingValue,
+			RatedAt:     m.RatingUpdatedAt,
 		})
 	}
 

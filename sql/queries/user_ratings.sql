@@ -22,7 +22,7 @@ WHERE user_id = $1 AND media_id = $2 AND deleted_at IS NULL;
 
 -- name: GetUsersRatings :many
 
-SELECT 
+SELECT
   u.user_id, 
   u.media_id, 
   u.rating_value, 
@@ -117,4 +117,76 @@ WHERE ur.media_id IS NULL
   AND (dh.media_id IS NULL OR dh.next_eligible_at <= NOW())
 ORDER BY RANDOM()
 LIMIT $2;
+
+-- name: GetSimilarMediaRatings :many
+SELECT
+  m.id,
+  m.title,
+  m.original_title,
+  m.poster_path,
+  m.tmdb_id,
+  m.backdrop_path,
+  m.overview,
+  m.release_date,
+  m.runtime,
+  m.media_type
+FROM media AS m
+INNER JOIN user_ratings AS ur
+ON m.id = ur.media_id AND ur.deleted_at IS NULL
+WHERE ur.rating_value >= 7
+  AND ur.user_id IN ($1, $2)
+GROUP BY m.id
+HAVING COUNT(DISTINCT ur.user_id) = 2
+LIMIT 10;
+
+-- name: GetUserHighestRatedMedia :many
+SELECT
+  m.id,
+  m.title,
+  m.original_title,
+  m.poster_path,
+  m.tmdb_id,
+  m.backdrop_path,
+  m.overview,
+  m.release_date,
+  m.runtime,
+  m.media_type,
+  ur.rating_value,
+  ur.updated_at AS rating_updated_at
+FROM media AS m
+INNER JOIN user_ratings AS ur
+ON m.id = ur.media_id AND ur.deleted_at IS NULL
+WHERE ur.user_id = $1
+  AND (ur.rating_value, ur.updated_at, ur.media_id) < (
+    sqlc.arg('cursor_rating_value')::integer,
+    sqlc.arg('cursor_updated_at')::timestamptz,
+    sqlc.arg('cursor_media_id')::UUID
+  )
+ORDER BY ur.rating_value DESC, ur.updated_at DESC, ur.media_id DESC
+LIMIT sqlc.arg('limit');
+
+-- name: GetUserRecentlyRatedMedia :many
+SELECT
+  m.id,
+  m.title,
+  m.original_title,
+  m.poster_path,
+  m.tmdb_id,
+  m.backdrop_path,
+  m.overview,
+  m.release_date,
+  m.runtime,
+  m.media_type,
+  ur.rating_value,
+  ur.updated_at AS rating_updated_at
+FROM media AS m
+INNER JOIN user_ratings AS ur
+ON m.id = ur.media_id AND ur.deleted_at IS NULL
+WHERE ur.user_id = $1
+  AND (ur.updated_at, ur.media_id) < (
+    sqlc.arg('cursor_updated_at'),
+    sqlc.arg('cursor_media_id')::UUID
+  )
+ORDER BY ur.updated_at DESC, ur.media_id DESC
+LIMIT sqlc.arg('limit');
 

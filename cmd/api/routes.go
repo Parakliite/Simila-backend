@@ -24,6 +24,10 @@ func (app *application) routes() http.Handler {
 		app.authenticate(http.HandlerFunc(app.requireActivatedUser(app.getUserProfileHandler))))
 	mux.Handle("PATCH /api/v1/users/profile",
 		app.authenticate(http.HandlerFunc(app.requireActivatedUser(app.updateUserProfileHandler))))
+	mux.Handle("GET /api/v1/users/{user_id}/ratings/highest-rated",
+		app.authenticate(http.HandlerFunc(app.requireActivatedUser(app.listUserHighestRatedMediaHandler))))
+	mux.Handle("GET /api/v1/users/{user_id}/ratings/recent",
+		app.authenticate(http.HandlerFunc(app.requireActivatedUser(app.listUserRecentRatedMediaHandler))))
 
 	mux.Handle("GET /api/v1/search",
 		app.authenticate(http.HandlerFunc(app.requireActivatedUser(app.searchHandler))))

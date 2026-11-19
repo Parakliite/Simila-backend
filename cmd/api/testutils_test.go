@@ -307,9 +307,16 @@ func tokenKey(scope string, tokenHash []byte) string {
 // --- mock rating model ---
 
 type mockRatingModel struct {
-	ratings         map[string]data.UserRating
-	randomMedia     []data.Media
-	lastRandomLimit int32
+	ratings             map[string]data.UserRating
+	randomMedia         []data.Media
+	highestRatedMedia   []data.RatedMedia
+	recentRatedMedia    []data.RatedMedia
+	lastRandomLimit     int32
+	lastRatedUserID     uuid.UUID
+	lastRatedLimit      int32
+	lastCursorRating    int32
+	lastCursorUpdatedAt time.Time
+	lastCursorMediaID   uuid.UUID
 }
 
 func newMockRatingModel() *mockRatingModel {
@@ -438,6 +445,36 @@ func (m *mockRatingModel) GetRandomMedia(
 	}
 
 	return result, nil
+}
+
+func (m *mockRatingModel) GetUserHighestRatedMedia(
+	ctx context.Context,
+	userID uuid.UUID,
+	cursorRatingValue int32,
+	cursorUpdatedAt time.Time,
+	cursorMediaID uuid.UUID,
+	limit int32,
+) ([]data.RatedMedia, error) {
+	m.lastRatedUserID = userID
+	m.lastRatedLimit = limit
+	m.lastCursorRating = cursorRatingValue
+	m.lastCursorUpdatedAt = cursorUpdatedAt
+	m.lastCursorMediaID = cursorMediaID
+	return m.highestRatedMedia, nil
+}
+
+func (m *mockRatingModel) GetUserRecentRatedMedia(
+	ctx context.Context,
+	userID uuid.UUID,
+	cursorUpdatedAt time.Time,
+	cursorMediaID uuid.UUID,
+	limit int32,
+) ([]data.RatedMedia, error) {
+	m.lastRatedUserID = userID
+	m.lastRatedLimit = limit
+	m.lastCursorUpdatedAt = cursorUpdatedAt
+	m.lastCursorMediaID = cursorMediaID
+	return m.recentRatedMedia, nil
 }
 
 // --- mock match model ---

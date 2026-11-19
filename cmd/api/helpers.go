@@ -154,7 +154,7 @@ func (app *application) readInt(qs url.Values, key string, defaultValue int32) i
 }
 
 func (app *application) encodeCursor(u uuid.UUID, t time.Time) string {
-	s := fmt.Sprintf("%v_%v", t, u)
+	s := fmt.Sprintf("%s_%s", t.Format(time.RFC3339Nano), u)
 	return base64.URLEncoding.EncodeToString([]byte(s))
 }
 
@@ -183,13 +183,59 @@ func (app *application) decodeCursor(cursorStr string) (uuid.UUID, time.Time, er
 	return u, t, nil
 }
 
+func (app *application) encodeCursorHighestRatedMedia(
+	ratingValue int32,
+	updatedAt time.Time,
+	mediaID uuid.UUID,
+) string {
+	s := fmt.Sprintf("%d_%s_%s", ratingValue, updatedAt.Format(time.RFC3339Nano), mediaID)
+	return base64.URLEncoding.EncodeToString([]byte(s))
+}
+
+func (app *application) decodeCursorHighestRatedMedia(
+	cursorStr string,
+) (ratingValue int32, updatedAt time.Time, mediaID uuid.UUID, err error) {
+	b, err := base64.URLEncoding.DecodeString(cursorStr)
+	if err != nil {
+		return 0, time.Time{}, uuid.Nil, err
+	}
+
+	parts := strings.Split(string(b), "_")
+	if len(parts) != 3 {
+		return 0, time.Time{}, uuid.Nil, errors.New("malformed cursor")
+	}
+
+	rating, err := strconv.ParseInt(parts[0], 10, 32)
+	if err != nil {
+		return 0, time.Time{}, uuid.Nil, err
+	}
+
+	updatedAt, err = time.Parse(time.RFC3339Nano, parts[1])
+	if err != nil {
+		return 0, time.Time{}, uuid.Nil, err
+	}
+
+	mediaID, err = uuid.Parse(parts[2])
+	if err != nil {
+		return 0, time.Time{}, uuid.Nil, err
+	}
+
+	return int32(rating), updatedAt, mediaID, nil
+}
+
 func (app *application) encodeCursorMatches(
 	score float64,
 	sharedMediaCount int32,
 	recalculatedAt time.Time,
 	otherUserID uuid.UUID,
 ) string {
-	s := fmt.Sprintf("%v_%v_%v_%v", score, sharedMediaCount, recalculatedAt, otherUserID)
+	s := fmt.Sprintf(
+		"%v_%d_%s_%s",
+		score,
+		sharedMediaCount,
+		recalculatedAt.Format(time.RFC3339Nano),
+		otherUserID,
+	)
 	return base64.URLEncoding.EncodeToString([]byte(s))
 }
 
