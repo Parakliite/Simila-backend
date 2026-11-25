@@ -19,6 +19,10 @@ func (app *application) routes() http.Handler {
 
 	mux.Handle("GET /api/v1/media/{id}",
 		app.authenticate(http.HandlerFunc(app.requireActivatedUser(app.getMediaHandler))))
+	mux.Handle("GET /api/v1/media/{id}/cast",
+		app.authenticate(http.HandlerFunc(app.requireActivatedUser(app.getMediaCast))))
+	mux.Handle("GET /api/v1/media/{id}/trailer",
+		app.authenticate(http.HandlerFunc(app.requireActivatedUser(app.getMediaVideo))))
 
 	mux.Handle("GET /api/v1/users/profile",
 		app.authenticate(http.HandlerFunc(app.requireActivatedUser(app.getUserProfileHandler))))

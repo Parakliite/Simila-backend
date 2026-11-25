@@ -276,3 +276,15 @@ func (app *application) decodeCursorMatches(
 
 	return score, sharedMediaCount, recalculatedAt, otherUserID, nil
 }
+
+func (app *application) videoURLs(site, key string) (watch, embed string, ok bool) {
+	switch site {
+	case "YouTube", "youtube":
+		return "https://www.youtube.com/watch?v=" + key,
+			"https://www.youtube.com/embed/" + key, true
+	case "Vimeo", "vimeo":
+		return "https://vimeo.com/" + key,
+			"https://player.vimeo.com/video/" + key, true
+	}
+	return "", "", false
+}
