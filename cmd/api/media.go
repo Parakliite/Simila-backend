@@ -8,6 +8,7 @@ import (
 	"net/http"
 	"net/url"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/parakliite/simila/internal/data"
@@ -51,6 +52,12 @@ type TMDBSearchResult struct {
 	FirstAirDate  string `json:"first_air_date,omitempty"`
 }
 
+type mediaCastMember struct {
+	Name        string  `json:"name"`
+	ProfilePath *string `json:"profile_path"`
+	Character   string  `json:"character"`
+}
+
 // TODO: change this to use an anonymous/scoped struct instead
 // of the returned value from the db query method
 func (app *application) getMediaHandler(w http.ResponseWriter, req *http.Request) {
@@ -90,6 +97,148 @@ func (app *application) getMediaHandler(w http.ResponseWriter, req *http.Request
 	}
 }
 
+func (app *application) getMediaVideo(w http.ResponseWriter, req *http.Request) {
+	id, err := app.readIDParam(req)
+	if err != nil {
+		app.notFoundResponse(w, req)
+		return
+	}
+
+	mediaType := req.URL.Query().Get("type")
+	if mediaType != "movie" && mediaType != "tv" {
+		app.badRequestResponse(w, req, errors.New("type parameter must be 'movie' or 'tv'"))
+		return
+	}
+
+	path := []string{"3", mediaType, strconv.FormatInt(int64(id), 10), "videos"}
+
+	tmdbReq, err := app.newTMDBRequest(req.Context(), path, url.Values{})
+	if err != nil {
+		app.serverErrorResponse(w, req, err)
+		return
+	}
+
+	client := &http.Client{Timeout: 5 * time.Second}
+	// #nosec G704 -- TMDB URL is built from a validated base URL, fixed path segments, and a numeric ID.
+	resp, err := client.Do(tmdbReq)
+	if err != nil {
+		app.logger.PrintError(err, map[string]string{"tmdb request": "request for videos"})
+		app.serverErrorResponse(w, req, fmt.Errorf("failed to fetch"))
+		return
+	}
+
+	if resp.StatusCode != 200 {
+		b := make([]byte, 1024)
+		n, _ := resp.Body.Read(b)
+		app.logger.PrintError(fmt.Errorf("failed to fetch from TMDB: statusCode: %v resp: %v", resp.StatusCode, string(b[:n])), nil)
+		app.serverErrorResponse(w, req, fmt.Errorf("failed to fetch"))
+		return
+	}
+	defer resp.Body.Close()
+
+	type TMDBVideoResponse struct {
+		ID      int `json:"id"`
+		Results []struct {
+			Name string `json:"name"`
+			Key  string `json:"key"`
+			Site string `json:"site"`
+			Type string `json:"type"`
+		} `json:"results"`
+	}
+
+	var tmdbVidResp TMDBVideoResponse
+
+	if err := json.NewDecoder(resp.Body).Decode(&tmdbVidResp); err != nil {
+		app.logger.PrintError(err, map[string]string{"tmdb response": "was unable to get tmdb response"})
+		app.serverErrorResponse(w, req, fmt.Errorf("failed to fetch"))
+		return
+	}
+
+	type Response struct {
+		External string `json:"external"`
+		Embed    string `json:"embed"`
+	}
+
+	var vidResp Response
+
+	for _, result := range tmdbVidResp.Results {
+		if strings.ToLower(result.Type) != "trailer" {
+			continue
+		}
+
+		watch, embed, ok := app.videoURLs(result.Site, result.Key)
+		if !ok {
+			continue
+		}
+
+		vidResp.External, vidResp.Embed = watch, embed
+		break
+	}
+
+	if err = app.writeJSON(w, http.StatusOK, envelope{"trailer": vidResp}, nil); err != nil {
+		app.serverErrorResponse(w, req, err)
+	}
+}
+
+func (app *application) getMediaCast(w http.ResponseWriter, req *http.Request) {
+	id, err := app.readIDParam(req)
+	if err != nil {
+		app.notFoundResponse(w, req)
+		return
+	}
+
+	mediaType := req.URL.Query().Get("type")
+	if mediaType != "movie" && mediaType != "tv" {
+		app.badRequestResponse(w, req, errors.New("type parameter must be 'movie' or 'tv'"))
+		return
+	}
+
+	path := []string{"3", mediaType, strconv.FormatInt(int64(id), 10), "credits"}
+	tmdbReq, err := app.newTMDBRequest(req.Context(), path, url.Values{})
+	if err != nil {
+		app.serverErrorResponse(w, req, err)
+		return
+	}
+
+	client := &http.Client{Timeout: 5 * time.Second}
+	// #nosec G704 -- TMDB URL is built from a validated base URL, fixed path segments, and a numeric ID.
+	resp, err := client.Do(tmdbReq)
+	if err != nil {
+		app.logger.PrintError(err, map[string]string{"tmdb request": "request for credits"})
+		app.serverErrorResponse(w, req, fmt.Errorf("failed to fetch"))
+		return
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		b := make([]byte, 1024)
+		n, _ := resp.Body.Read(b)
+		app.logger.PrintError(fmt.Errorf("failed to fetch credits from TMDB: statusCode: %v resp: %v", resp.StatusCode, string(b[:n])), nil)
+		app.serverErrorResponse(w, req, fmt.Errorf("failed to fetch"))
+		return
+	}
+
+	var tmdbResponse struct {
+		Cast []mediaCastMember `json:"cast"`
+	}
+	if err := json.NewDecoder(resp.Body).Decode(&tmdbResponse); err != nil {
+		app.logger.PrintError(err, map[string]string{"tmdb response": "unable to decode credits"})
+		app.serverErrorResponse(w, req, fmt.Errorf("failed to fetch"))
+		return
+	}
+
+	castCount := len(tmdbResponse.Cast)
+	if castCount > 15 {
+		castCount = 15
+	}
+	cast := append([]mediaCastMember(nil), tmdbResponse.Cast[:castCount]...)
+	tmdbResponse.Cast = nil
+
+	if err := app.writeJSON(w, http.StatusOK, envelope{"cast": cast}, nil); err != nil {
+		app.serverErrorResponse(w, req, err)
+	}
+}
+
 func (app *application) fetchAndSaveMedia(
 	ctx context.Context,
 	tmdbID int32,
@@ -121,7 +270,7 @@ func (app *application) fetchTMDBMedia(
 	case "tv":
 		path = []string{"3", "tv", tmdbIDPath}
 	default:
-		return nil, errors.New("invalid media type")
+		panic(fmt.Sprintf("an unexpected media type has been passed: %s", mediaType))
 	}
 
 	req, err := app.newTMDBRequest(ctx, path, url.Values{})

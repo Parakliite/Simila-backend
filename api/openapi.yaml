@@ -272,6 +272,62 @@ paths:
         "500":
           $ref: "#/components/responses/ServerError"
 
+  /api/v1/media/{id}/cast:
+    get:
+      tags: [Media]
+      summary: Get the top billed cast for a movie or TV show
+      description: Returns up to 15 cast members in TMDB billing order.
+      parameters:
+        - $ref: "#/components/parameters/TMDBID"
+        - name: type
+          in: query
+          required: true
+          schema:
+            $ref: "#/components/schemas/MediaType"
+      responses:
+        "200":
+          description: Cast members
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MediaCastResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "500":
+          $ref: "#/components/responses/ServerError"
+
+  /api/v1/media/{id}/trailer:
+    get:
+      tags: [Media]
+      summary: Get a media trailer URL
+      description: Returns the first supported trailer from TMDB videos for the specified movie or TV show.
+      parameters:
+        - $ref: "#/components/parameters/TMDBID"
+        - name: type
+          in: query
+          required: true
+          schema:
+            $ref: "#/components/schemas/MediaType"
+      responses:
+        "200":
+          description: Trailer links, or empty strings when no supported trailer is available
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MediaTrailerResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "500":
+          $ref: "#/components/responses/ServerError"
+
   /api/v1/search:
     get:
       tags: [Search]
@@ -1163,6 +1219,43 @@ components:
       properties:
         media:
           $ref: "#/components/schemas/Media"
+    CastMember:
+      type: object
+      required: [name, profile_path, character]
+      properties:
+        name:
+          type: string
+        profile_path:
+          type:
+            - string
+            - "null"
+        character:
+          type: string
+    MediaCastResponse:
+      type: object
+      required: [cast]
+      properties:
+        cast:
+          type: array
+          maxItems: 15
+          items:
+            $ref: "#/components/schemas/CastMember"
+    MediaTrailer:
+      type: object
+      required: [external, embed]
+      properties:
+        external:
+          type: string
+          description: URL to watch the trailer on its hosting platform.
+        embed:
+          type: string
+          description: URL suitable for embedding the trailer.
+    MediaTrailerResponse:
+      type: object
+      required: [trailer]
+      properties:
+        trailer:
+          $ref: "#/components/schemas/MediaTrailer"
     MediaListResponse:
       type: object
       required: [media, has_more]
