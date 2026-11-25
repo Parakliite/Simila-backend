@@ -9,6 +9,9 @@ import (
 	"strings"
 )
 
+// newTMDBRequest builds an authenticated GET request for a validated TMDB endpoint.
+// ctx controls request cancellation, path contains endpoint segments after /3,
+// and query contains the endpoint's URL parameters.
 func (app *application) newTMDBRequest(
 	ctx context.Context,
 	path []string,
